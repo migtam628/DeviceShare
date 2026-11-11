@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>DeviceShare Console</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0b1020; --panel:#151e31; --panel2:#1b263c; --line:#2c3a51; --muted:#9aabc3; --text:#edf4fe; --accent:#54d2c0; --blue:#8aaaff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; font-size:14px; }
+    header { padding:22px 32px; display:flex; gap:15px; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); background:#0e1728; }
+    .brand { display:flex; align-items:center; gap:14px; }
+    .symbol { display:grid; place-items:center; width:42px; height:42px; background:var(--accent); color:#06161b; border-radius:12px; font-weight:900; font-size:24px; }
+    h1,h2,h3,p { margin:0; }
+    h1 { font-size:20px; letter-spacing:-.5px; } h2 { font-size:17px; margin-bottom:17px; } h3 { font-size:14px; margin-bottom:8px; }
+    .muted,.sub { color:var(--muted); } .sub { font-size:12px; margin-top:3px; } .meta { font-size:11px; text-transform:uppercase; letter-spacing:1.2px; color:var(--muted); }
+    .chip { display:inline-flex; padding:5px 10px; border-radius:40px; border:1px solid var(--line); font-size:12px; }
+    .chip.good { color:var(--accent); border-color:#277468; } .chip.warn { color:#facb86; border-color:#80603b; }
+    main { max-width:1470px; margin:auto; padding:26px 32px 48px; }
+    .intro { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:24px; }
+    .intro h2 { font-size:25px; margin:0 0 7px; letter-spacing:-.6px; } .intro p { color:var(--muted); line-height:1.6; }
+    .grid { display:grid; gap:18px; grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .panel { border:1px solid var(--line); border-radius:16px; background:var(--panel); padding:20px; min-width:0; }
+    .panel.wide { grid-column:span 2; } .panel.full { grid-column:1/-1; }
+    .stat { font-size:31px; font-weight:750; letter-spacing:-1px; margin:12px 0 6px; }
+    .statline { display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
+    .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .stack { display:grid; gap:11px; }
+    input,select,textarea,button { font:inherit; }
+    input,select,textarea { width:100%; border-radius:9px; padding:11px 12px; border:1px solid var(--line); background:#0e1728; color:var(--text); outline:none; }
+    input:focus,select:focus,textarea:focus { border-color:var(--accent); box-shadow:0 0 0 2px #54d2c022; }
+    textarea { resize:vertical; min-height:72px; }
+    label { display:block; margin-bottom:5px; color:var(--muted); font-size:12px; }
+    button { padding:10px 15px; background:var(--accent); color:#06161b; border:1px solid transparent; border-radius:9px; font-weight:700; cursor:pointer; }
+    button.secondary { background:var(--panel2); color:var(--text); border-color:var(--line); }
+    button.danger { color:#ffd2d2; border:1px solid #92505a; background:transparent; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .auth { display:flex; gap:10px; align-items:center; max-width:650px; }
+    .auth input { min-width:180px; width:310px; }
+    .tools { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .divider { border-top:1px solid var(--line); margin:14px 0; }
+    table { border-collapse:collapse; width:100%; font-size:13px; }
+    th { text-align:left; color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.7px; font-weight:600; }
+    td,th { padding:12px 9px; border-bottom:1px solid var(--line); vertical-align:middle; }
+    td { overflow-wrap:anywhere; } tr:last-child td { border-bottom:0; }
+    .scroll { overflow-x:auto; }
+    code { font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; color:#b6d3fb; }
+    .empty { padding:18px; color:var(--muted); text-align:center; }
+    .break { overflow-wrap:anywhere; }
+    .notice { margin-top:15px; border:1px solid var(--line); padding:12px; border-radius:9px; background:#101a2c; color:#bed0e7; line-height:1.5; }
+    .error { color:#ffacae; } .success { color:var(--accent); }
+    #credentialOutput { font-family:ui-monospace,monospace; word-break:break-all; }
+    footer { margin-top:25px; color:var(--muted); font-size:12px; }
+    @media(max-width:950px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.panel.wide{grid-column:span 2}.auth{flex-wrap:wrap}}
+    @media(max-width:650px){header,main{padding:18px}.grid{grid-template-columns:1fr}.panel.wide,.panel.full{grid-column:span 1}.tools{grid-template-columns:1fr}.intro{display:block}.auth input{width:100%}.stat{font-size:25px}}
+  </style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="symbol" aria-hidden="true">D</div><div><h1>DeviceShare</h1><div class="sub">Device management console · Alpha</div></div></div>
+  <span class="chip" id="connection">Not connected</span>
+</header>
+<main>
+  <section class="intro">
+    <div><h2>Device operations</h2><p>Monitor connected agents, inspect discovered peripherals, and submit approved jobs.</p></div>
+    <span class="chip warn">Early access · trusted networks only</span>
+  </section>
+  <section class="panel" style="margin-bottom:18px">
+    <div class="row" style="justify-content:space-between">
+      <div><h3>Connect to your hub</h3><div class="sub">Enter the administrator API key. It remains in this browser tab's memory only.</div></div>
+      <div class="auth"><input id="apiKey" type="password" placeholder="Admin API key" autocomplete="off" aria-label="Administrator API key"><button id="connectButton">Connect</button><button id="disconnectButton" class="secondary" type="button">Disconnect</button></div>
+    </div>
+    <div id="message" class="notice" role="status">Enter your API key to load the dashboard.</div>
+  </section>
+  <section class="grid">
+    <div class="panel"><div class="meta">Online agents</div><div class="stat" id="agentsCount">—</div><div class="sub">Currently connected stations</div></div>
+    <div class="panel"><div class="meta">Discovered devices</div><div class="stat" id="devicesCount">—</div><div class="sub">Available hardware inventory</div></div>
+    <div class="panel"><div class="meta">Recent jobs</div><div class="stat" id="jobsCount">—</div><div class="sub">Most recent 50 jobs</div></div>
+    <section class="panel wide">
+      <div class="statline"><h2>Stations &amp; peripherals</h2><button id="refreshButton" class="secondary" type="button">Refresh</button></div>
+      <div class="scroll"><table><thead><tr><th>Agent ID</th><th>Status</th><th>Devices</th><th>Authorization</th></tr></thead><tbody id="agentTable"><tr><td colspan="4" class="empty">Connect to load agents.</td></tr></tbody></table></div>
+      <div class="divider"></div>
+      <h3>Discovered devices</h3>
+      <div class="scroll"><table><thead><tr><th>Agent</th><th>Device</th><th>Category</th><th>Identifier</th></tr></thead><tbody id="deviceTable"><tr><td colspan="4" class="empty">No inventory yet.</td></tr></tbody></table></div>
+    </section>
+    <section class="panel">
+      <h2>Agent credentials</h2>
+      <p class="sub" style="margin-bottom:18px">Create or rotate a station-specific token. The token is shown once; store it securely on that station.</p>
+      <form id="pairForm" class="stack">
+        <div><label for="pairId">Agent ID</label><input id="pairId" placeholder="station-01" maxlength="80" required pattern="[a-zA-Z0-9_.-]+"></div>
+        <button type="submit">Generate or rotate token</button>
+      </form>
+      <div class="divider"></div>
+      <p class="sub">New token (displayed once)</p>
+      <p id="credentialOutput" class="break" style="padding:12px 0">No token created in this session.</p>
+      <button id="copyToken" class="secondary" type="button" disabled>Copy token</button>
+      <div class="divider"></div>
+      <form id="revokeForm" class="stack">
+        <div><label for="revokeId">Revoke agent ID</label><input id="revokeId" placeholder="station-01" maxlength="80" required pattern="[a-zA-Z0-9_.-]+"></div>
+        <button class="danger" type="submit">Revoke station token</button>
+      </form>
+    </section>
+    <section class="panel">
+      <h2>Submit device job</h2>
+      <form id="jobForm" class="stack">
+        <div><label for="jobAgent">Agent ID</label><input id="jobAgent" value="station-01" maxlength="80" required></div>
+        <div><label for="jobDevice">Device identifier</label><input id="jobDevice" value="sim:printer" maxlength="300" required></div>
+        <div><label for="jobOperation">Operation</label><select id="jobOperation"><option value="simulate">Simulator</option><option value="print_raw">Print raw / ZPL</option><option value="serial_exchange">Serial exchange</option></select></div>
+        <div><label for="jobText">UTF-8 test payload</label><textarea id="jobText" maxlength="8192" placeholder="Hello DeviceShare"></textarea></div>
+        <button type="submit">Submit job</button>
+      </form>
+      <div class="notice">Physical devices must be explicitly allowlisted in the local agent's configuration. This console cannot bypass those approvals. PDF/image jobs are available through the API.</div>
+    </section>
+    <section class="panel wide">
+      <h2>Recent activity</h2>
+      <div class="scroll"><table><thead><tr><th>Job ID</th><th>Device</th><th>Operation</th><th>Status</th><th>Created</th></tr></thead><tbody id="jobTable"><tr><td colspan="5" class="empty">Connect to load jobs.</td></tr></tbody></table></div>
+    </section>
+  </section>
+  <footer>DeviceShare alpha · A queued print job does not prove that paper was printed. Unknown delivery state must be reconciled before retry.</footer>
+</main>
+<script>
+  (() => {
+    "use strict";
+    let key = "";
+    let lastToken = "";
+    const el = id => document.getElementById(id);
+    const status = (message, bad=false) => {
+      el("message").textContent = message;
+      el("message").className = "notice " + (bad ? "error" : "success");
+    };
+    const td = (tr, value) => {
+      const cell = document.createElement("td");
+      cell.textContent = value == null ? "" : String(value);
+      tr.appendChild(cell);
+    };
+    const clearRows = id => el(id).replaceChildren();
+    const emptyRow = (id, label, columns) => {
+      const tr = document.createElement("tr");
+      const cell = document.createElement("td");
+      cell.colSpan = columns;
+      cell.className = "empty";
+      cell.textContent = label;
+      tr.appendChild(cell);
+      el(id).appendChild(tr);
+    };
+    async function request(path, options={}) {
+      if (!key) throw new Error("Connect with your admin key first.");
+      const response = await fetch(path, {
+        ...options,
+        cache:"no-store",
+        headers: {"X-API-Key":key, ...(options.body ? {"Content-Type":"application/json"} : {})},
+      });
+      if (!response.ok) {
+        const parsed = await response.json().catch(() => ({}));
+        throw new Error(parsed.detail || "HTTP " + response.status);
+      }
+      return response.json();
+    }
+    function formatDate(value) { return value ? new Date(value).toLocaleString() : "—"; }
+    async function refresh() {
+      const [agents, jobs] = await Promise.all([request("/v1/agents"),request("/v1/jobs?limit=50")]);
+      el("connection").textContent = "Connected";
+      el("connection").className = "chip good";
+      el("agentsCount").textContent = agents.filter(a => a.online).length;
+      el("devicesCount").textContent = agents.reduce((count,a) => count + (a.devices || []).length,0);
+      el("jobsCount").textContent = jobs.length;
+      clearRows("agentTable"); clearRows("deviceTable"); clearRows("jobTable");
+      if (!agents.length) emptyRow("agentTable","No registered or connected stations.",4);
+      if (!agents.some(a => (a.devices || []).length)) emptyRow("deviceTable","No connected devices.",4);
+      for (const a of agents) {
+        const tr = document.createElement("tr");
+        td(tr,a.agent_id); td(tr,a.online ? "Online" : "Offline");
+        td(tr,(a.devices || []).length);
+        td(tr,a.credential_status || "Legacy / unpaired");
+        el("agentTable").appendChild(tr);
+        for (const d of (a.devices || [])) {
+          const row = document.createElement("tr");
+          td(row,a.agent_id); td(row,d.label); td(row,d.kind); td(row,d.id);
+          el("deviceTable").appendChild(row);
+        }
+      }
+      if (!jobs.length) emptyRow("jobTable","No jobs submitted.",5);
+      for (const j of jobs) {
+        const tr = document.createElement("tr");
+        td(tr,j.id.slice(0,10)); td(tr,j.device_id); td(tr,j.operation);
+        td(tr,j.status); td(tr,formatDate(j.created_at));
+        el("jobTable").appendChild(tr);
+      }
+    }
+    async function guarded(callback) {
+      try { await callback(); } catch(e) { status(e.message,true); }
+    }
+    el("connectButton").addEventListener("click", () => guarded(async () => {
+      key = el("apiKey").value.trim();
+      if (!key) throw new Error("Enter an API key.");
+      await refresh();
+      el("apiKey").value = "";
+      status("Dashboard connected. Your API key stays in memory until disconnect or reload.");
+    }));
+    el("disconnectButton").addEventListener("click", () => {
+      key=""; lastToken=""; el("apiKey").value="";
+      el("credentialOutput").textContent="No token created in this session.";
+      el("copyToken").disabled=true;
+      el("connection").textContent="Not connected"; el("connection").className="chip";
+      for (const id of ["agentsCount","devicesCount","jobsCount"]) el(id).textContent="—";
+      clearRows("agentTable"); clearRows("deviceTable"); clearRows("jobTable");
+      status("Disconnected; credentials cleared from this tab.");
+    });
+    el("refreshButton").addEventListener("click", () => guarded(async () => { await refresh(); status("Inventory and job status refreshed."); }));
+    el("pairForm").addEventListener("submit", event => { event.preventDefault(); guarded(async () => {
+      const id = el("pairId").value.trim();
+      if (!window.confirm("Create or rotate credentials for " + id + "? Any existing connection may be disconnected.")) return;
+      const created = await request("/v1/agents/" + encodeURIComponent(id) + "/credential",{method:"POST"});
+      lastToken = created.token;
+      el("credentialOutput").textContent = lastToken;
+      el("copyToken").disabled=false;
+      await refresh();
+      status("Token created for " + id + ". Save it securely now; it cannot be retrieved later.");
+    }); });
+    el("copyToken").addEventListener("click", () => guarded(async () => {
+      if (!lastToken) throw new Error("No token is available.");
+      await navigator.clipboard.writeText(lastToken);
+      status("Token copied. Keep it confidential.");
+    }));
+    el("revokeForm").addEventListener("submit", event => { event.preventDefault(); guarded(async () => {
+      const id = el("revokeId").value.trim();
+      if (!window.confirm("Revoke credentials and disconnect " + id + "?")) return;
+      await request("/v1/agents/" + encodeURIComponent(id) + "/credential",{method:"DELETE"});
+      await refresh(); status("Credentials revoked for " + id + ".");
+    }); });
+    el("jobForm").addEventListener("submit", event => { event.preventDefault(); guarded(async () => {
+      const operation = el("jobOperation").value;
+      const text = el("jobText").value;
+      const data = new TextEncoder().encode(text);
+      if (data.length > 8192) throw new Error("Dashboard limits text payloads to 8 KiB.");
+      // UTF-8 bytes into base64; no URI encoding or non-ASCII corruption.
+      let binary=""; for (const byte of data) binary += String.fromCharCode(byte);
+      const body = {
+        agent_id:el("jobAgent").value.trim(),device_id:el("jobDevice").value.trim(),
+        operation,data_base64:btoa(binary),options:operation === "serial_exchange"
+          ? {baudrate:9600,read_size:0} : {}
+      };
+      const result=await request("/v1/jobs",{method:"POST",body:JSON.stringify(body)});
+      await refresh(); status("Job " + result.id.slice(0,10) + " submitted. Status: " + result.status);
+    }); });
+  })();
+</script>
+</body>
+</html>
