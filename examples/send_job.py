@@ -19,17 +19,23 @@ def main():
     parser.add_argument("--agent", default="station-01")
     parser.add_argument("--device", required=True)
     parser.add_argument("--operation", required=True,
-                        choices=["simulate", "print_raw", "print_document", "serial_exchange"])
-    payload = parser.add_mutually_exclusive_group(required=True)
+                        choices=["simulate", "print_raw", "print_document", "serial_exchange", "hid_read"])
+    payload = parser.add_mutually_exclusive_group(required=False)
     payload.add_argument("--file")
     payload.add_argument("--text")
     parser.add_argument("--mime", choices=["application/pdf", "image/png"])
     parser.add_argument("--baudrate", type=int, default=9600)
     parser.add_argument("--read-size", type=int, default=0)
+    parser.add_argument("--timeout-ms", type=int, default=500)
     parser.add_argument("--idempotency-key")
     args = parser.parse_args()
 
-    data = open(args.file, "rb").read() if args.file else args.text.encode("utf-8")
+    if args.operation == "hid_read":
+        if args.file is not None or args.text is not None:
+            parser.error("hid_read does not accept outgoing data")
+    elif args.file is None and args.text is None:
+        parser.error("--file or --text is required for this operation")
+    data = open(args.file, "rb").read() if args.file else (args.text or "").encode("utf-8")
     if len(data) > 1024 * 1024:
         parser.error("file/text must be <=1 MiB")
     options = {}
@@ -39,6 +45,8 @@ def main():
         options["mime_type"] = args.mime
     if args.operation == "serial_exchange":
         options.update(baudrate=args.baudrate, read_size=args.read_size)
+    if args.operation == "hid_read":
+        options.update(read_size=args.read_size or 64, timeout_ms=args.timeout_ms)
     body = {
         "agent_id": args.agent,
         "device_id": args.device,
