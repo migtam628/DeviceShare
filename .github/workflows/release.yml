@@ -1,0 +1,78 @@
+name: Build GitHub Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install ".[dev]"
+      - run: python -m pytest -q
+
+  build:
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            suffix: linux-x64
+          - os: windows-latest
+            suffix: windows-x64
+          - os: macos-14
+            suffix: macos-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install ".[usb]" pyinstaller
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            python -m pip install ".[windows]"
+          fi
+      - name: Build agent binary
+        shell: bash
+        run: |
+          python -m PyInstaller --clean --onefile --name "deviceshare-agent-${{ matrix.suffix }}" --hidden-import serial.tools.list_ports --hidden-import usb.core scripts/agent_launcher.py
+      - name: Build hub binary
+        shell: bash
+        run: |
+          python -m PyInstaller --clean --onefile --name "deviceshare-hub-${{ matrix.suffix }}" --collect-all uvicorn --collect-all fastapi scripts/hub_launcher.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binaries-${{ matrix.suffix }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binaries-*
+          path: release-assets
+          merge-multiple: true
+      - name: Publish assets to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          flags=()
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "${GITHUB_REF_NAME}" release-assets/* --repo "${GITHUB_REPOSITORY}" --title "DeviceShare ${GITHUB_REF_NAME}" --generate-notes "${flags[@]}"
