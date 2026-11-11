@@ -5,12 +5,12 @@ from scripts.verify_release_version import validate
 
 
 def test_alpha_release_tag():
-    assert validate("v0.2.0-alpha.2") == "0.2.0a1"
+    assert validate("v0.2.0-alpha.2") == "0.2.0a2"
 
 
 @pytest.mark.parametrize("bad", [
     "v0.2.0", "v0.2.0-beta.1", "v9.1.0-alpha.1",
-    "v0.2.0-alpha.2", "0.2.0-alpha.1", "not-a-tag",
+    "v0.2.0-alpha.1", "0.2.0-alpha.1", "not-a-tag",
 ])
 def test_reject_incorrect_release_tag(bad):
     with pytest.raises(ValueError):
