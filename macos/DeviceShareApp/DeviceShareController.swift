@@ -52,7 +52,7 @@ final class DeviceShareController: ObservableObject {
         Bundle.main.bundleURL.appendingPathComponent("Contents/MacOS/deviceshare-hub")
     }
 
-    var hasToken: Bool { (try? Data(contentsOf: tokenURL).count) ?? 0 >= 16 }
+    var hasToken: Bool { ((try? Data(contentsOf: tokenURL).count) ?? 0) >= 16 }
     var hasLocalHubKey: Bool { FileManager.default.fileExists(atPath: hubKeyURL.path) }
     var applicationSupportLocation: String { supportURL.path }
 
