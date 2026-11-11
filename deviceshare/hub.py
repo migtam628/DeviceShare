@@ -1,6 +1,8 @@
 """Authenticated FastAPI hub and outbound-agent WebSocket relay."""
 import argparse
 import asyncio
+import hashlib
+import hmac
 from importlib.resources import files
 import json
 import os
@@ -11,9 +13,10 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Security, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, Security, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.security import APIKeyHeader
+from urllib.parse import urlsplit
 
 from .models import JobCreate
 from .store import Store
@@ -52,10 +55,82 @@ def create_app(
     clients: dict[str, AgentConnection] = {}
     app.state.store = store
     app.state.clients = clients
+    fingerprint = hmac.new(api_key.encode("utf-8"), b"deviceshare-admin-session-v1", hashlib.sha256).hexdigest()
+    session_cookie = "deviceshare_admin_session"
 
-    async def require_api_key(key: str | None = Security(auth_header)):
-        if key is None or not secrets.compare_digest(key, api_key):
+    def same_origin(request: Request) -> bool:
+        origin = request.headers.get("origin")
+        if not origin:
+            return True
+        try:
+            parsed = urlsplit(origin)
+            return (parsed.scheme == request.url.scheme
+                    and parsed.netloc == request.url.netloc
+                    and not parsed.username and not parsed.password
+                    and parsed.path in ("", "/") and not parsed.query and not parsed.fragment)
+        except ValueError:
+            return False
+
+    def cookie_authorized(request: Request) -> bool:
+        return store.verify_admin_session(request.cookies.get(session_cookie), fingerprint)
+
+    async def require_api_key(request: Request, key: str | None = Security(auth_header)):
+        # A supplied API key always wins, even if invalid; never let an invalid header
+        # silently fall back to a browser cookie.
+        if key is not None:
+            if secrets.compare_digest(key, api_key):
+                return
             raise HTTPException(status_code=401, detail="Invalid API key")
+        if not cookie_authorized(request):
+            raise HTTPException(status_code=401, detail="Authentication required")
+        # Mutations authenticated with browser cookies require a same-origin
+        # non-simple header. Cross-site forms cannot send this header, and
+        # cross-origin fetches cannot use it without a CORS preflight.
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            if request.headers.get("x-deviceshare-csrf") != "1" or not same_origin(request):
+                raise HTTPException(status_code=403, detail="Same-origin request required")
+
+    @app.post("/v1/session")
+    async def login(request: Request, response: Response, body: dict):
+        if not same_origin(request):
+            raise HTTPException(status_code=403, detail="Same-origin request required")
+        # Never send an admin secret over cleartext to a remote server.
+        if request.url.scheme != "https" and request.url.hostname not in ("localhost", "127.0.0.1", "::1"):
+            raise HTTPException(status_code=400, detail="Use HTTPS for remote dashboard login")
+        supplied = body.get("api_key")
+        remember = body.get("remember", False)
+        if not isinstance(supplied, str) or len(supplied) > 1024 or not secrets.compare_digest(supplied, api_key):
+            raise HTTPException(status_code=401, detail="Invalid API key")
+        if not isinstance(remember, bool):
+            raise HTTPException(status_code=422, detail="remember must be a boolean")
+        ttl = 30 * 86400 if remember else 12 * 3600
+        token = store.issue_admin_session(fingerprint, ttl)
+        response.set_cookie(
+            key=session_cookie, value=token, httponly=True, secure=request.url.scheme == "https",
+            samesite="strict", path="/v1", max_age=ttl if remember else None,
+        )
+        response.headers["Cache-Control"] = "no-store"
+        return {"authenticated": True, "remembered": remember}
+
+    @app.get("/v1/session")
+    async def session_state(request: Request, response: Response):
+        response.headers["Cache-Control"] = "no-store"
+        return {"authenticated": cookie_authorized(request)}
+
+    @app.delete("/v1/session")
+    async def logout(request: Request, response: Response):
+        if request.headers.get("x-deviceshare-csrf") != "1" or not same_origin(request):
+            raise HTTPException(status_code=403, detail="Same-origin request required")
+        store.revoke_admin_session(request.cookies.get(session_cookie))
+        response.delete_cookie(key=session_cookie, path="/v1", samesite="strict")
+        response.headers["Cache-Control"] = "no-store"
+        return {"authenticated": False}
+
+    @app.delete("/v1/sessions", dependencies=[Depends(require_api_key)])
+    async def revoke_all_sessions(request: Request, response: Response):
+        store.revoke_all_admin_sessions()
+        response.delete_cookie(key=session_cookie, path="/v1", samesite="strict")
+        return {"revoked": True}
 
     async def deliver(agent_id: str):
         client = clients.get(agent_id)
@@ -84,6 +159,22 @@ def create_app(
                         # Mark uncertain, NEVER automatically replay a possibly printed job.
                         store.uncertain(agent_id)
                         return
+
+    @app.get("/settings", response_class=HTMLResponse, include_in_schema=False)
+    async def settings():
+        return HTMLResponse(
+            content=files("deviceshare").joinpath("settings.html").read_text(encoding="utf-8"),
+            headers={
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer",
+                "X-Frame-Options": "DENY",
+                "Content-Security-Policy": (
+                    "default-src 'none'; script-src 'unsafe-inline'; "
+                    "style-src 'unsafe-inline'; connect-src 'self'; "
+                    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+                ),
+            },
+        )
 
     @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
     async def dashboard():
