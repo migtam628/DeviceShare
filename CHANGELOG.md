@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.0-alpha.5 — Guided activation and owner sign-in (2026-11-11)
+
+- Replaced the Console's administrator API-key sign-in form with email and password, including a first-run activation gate, account recovery and setup-progress checklist.
+- Added local-only one-time 10-minute activation/recovery codes; the Mac app can activate the account without exposing its host key to the browser.
+- Added salted scrypt password hashing, five-failure login lockout, origin/CSRF validation, and password-bound revocable browser sessions.
+- Added macOS guided owner activation, account-state detection and Settings recovery-code generation.
+- Preserved existing station tokens, job ledger and machine-to-machine API integrations across upgrade.
+- Added auth migration and local recovery instructions. No email verification, password-reset email or enterprise RBAC in this alpha.
+
 ## v0.2.0-alpha.4 — Print Studio and safer remembered login (2026-11-11)
 
 - Reorganized the browser UI into distinct Overview, Printers, Print Studio, Activity, Devices, and Settings routes.
