@@ -11,23 +11,13 @@ USB drivers, blanket printer access or automatic start of its network services.
    and drag `DeviceShare.app` into Applications. On a Mac mini M1,
    use **macos-arm64**.
 2. Launch **DeviceShare** from Applications.
-3. In **First-run setup**, select **Start Local Hub**. The app generates a
-   cryptographically random admin API key and saves it privately.
-   The hub listens **only on 127.0.0.1:8765**.
-4. Keep `station-01` or choose a different unique station name.
-   Select **Save Station Settings**.
-5. Choose **Pair / Rotate Credential**. The GUI stores the station token
-   in a private local file; it never displays the token in logs or
-   saves your remote administrator key.
-6. Open **Local devices**, press **Scan Local Devices**, and approve
-   individual printers, serial ports or read-only HID devices.
-   Select **Save Approvals**. USB VID/PID inventory is still read-only.
-7. In **Background services**, press **Start / Restart** for the
-   Peripheral Agent.
-8. Select **Open Hub Dashboard**; verify the station is online. A
-   launchd-loaded status alone does not guarantee hub connectivity.
-9. Test the simulator before sending a label to a real printer.
-   Real print acceptance still requires physical verification.
+3. In **Overview → 1. Select the Hub**, click **Start Local Hub**. The app stores a private machine key; the Hub listens **only on 127.0.0.1:8765**.
+4. Under **2. Create your administrator account**, enter your email and a password of at least 12 characters. Select **Activate administrator**. The Mac app obtains a one-time code internally—no API key needs to be copied to Chrome.
+5. Under **3. Configure this station**, keep your current station ID if it was already paired; do not rotate its credentials unnecessarily.
+6. Under **4. Pair the station**, pair only if the Mac has no saved station credential. The separate host key still handles device provisioning automatically.
+7. Under **Services**, start/restart the Hub and Peripheral Agent after installing updates. Confirm the agent appears online in the browser.
+8. Open **http://127.0.0.1:8765/dashboard**, then **sign in with your email and password**. The browser can remember a revocable 30-day session without storing either password or key.
+9. Open **Printers**, scan and explicitly approve the desired printer. Restart the Agent after approval, then choose **Print Studio** to submit a single test page and confirm physical output.
 
 ## Connecting to a remote hub instead
 
@@ -39,9 +29,9 @@ USB drivers, blanket printer access or automatic start of its network services.
 - The default hub remains local; the app does not expose it remotely
   or configure TLS on your behalf.
 
-## Selecting printers and running test prints (alpha.4)
+## Selecting printers and running test prints (alpha.5)
 
-DeviceShare.app now uses a sidebar with separate **Printers**, **Print Studio**, **Local Devices**, **Services** and **Settings** sections.
+DeviceShare.app uses a sidebar with separate **Printers**, **Print Studio**, **Local Devices**, **Services** and **Settings** sections.
 
 1. **Printers:** scan your macOS queues, choose the specific printer you intend to use and enable its local **Approved** switch. Save approvals, then restart the Agent under Services. An enabled queue is not necessarily physically connected.
 2. **Print Studio:** select the approved queue, choose **copies (1–5)**, **US Letter or A4**, and optional double-sided printing. The **Print Test Page** action submits a single PDF containing identity, time, grayscale swatches, and an alignment border.
@@ -51,7 +41,7 @@ DeviceShare.app now uses a sidebar with separate **Printers**, **Print Studio**,
 
 CUPS `lpstat -p` reports queue state, whereas network/USB hardware can still be offline. Check your HP ENVY's queue and physical connection before repeatedly submitting print jobs.
 
-The **Settings** tab can optionally keep a remote Hub administrator key in the macOS **Keychain** (not in agent.json). The local Hub already keeps its key in a private file. The browser Settings page can remember a revocable login session without saving the raw administrator key in localStorage.
+The **Settings** tab can generate a short-lived account recovery code and optionally keep a remote integration key in macOS **Keychain** (not in agent.json). The local Hub keeps its internal key in a private file. The web dashboard uses email/password sign-in and can remember a revocable browser session without storing the password or raw machine key in localStorage.
 
 ## Device approval model
 
