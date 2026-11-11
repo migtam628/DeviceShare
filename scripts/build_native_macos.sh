@@ -61,11 +61,28 @@ pkgbuild --root "$stage" \
   --version "0.2.5" \
   --install-location "/" "$pkg"
 
+echo "[native-macos] Expanding package to verify the install manifest"
 pkgutil --expand "$pkg" "$workspace/expanded"
-test -s "$workspace/expanded/Bom"
-pkgutil --payload-files "$pkg" | grep -Fq "Applications/DeviceShare.app/Contents/MacOS/DeviceShare"
-pkgutil --payload-files "$pkg" | grep -Fq "Applications/DeviceShare.app/Contents/MacOS/deviceshare-agent"
-pkgutil --payload-files "$pkg" | grep -Fq "usr/local/bin/deviceshare-agent"
+test -s "$workspace/expanded/Bom" || {
+  echo "[native-macos] Missing package Bill of Materials" >&2
+  ls -la "$workspace/expanded" >&2
+  exit 1
+}
+echo "[native-macos] Collecting complete payload listing"
+pkgutil --payload-files "$pkg" > "$workspace/payload-files.txt"
+# Capture output before grep. Pipefail combined with grep -q can otherwise
+# generate a spurious SIGPIPE when pkgutil is still emitting many paths.
+for target in \
+  "Applications/DeviceShare.app/Contents/MacOS/DeviceShare" \
+  "Applications/DeviceShare.app/Contents/MacOS/deviceshare-agent" \
+  "usr/local/bin/deviceshare-agent"; do
+  if ! grep -Fq "$target" "$workspace/payload-files.txt"; then
+    echo "[native-macos] Missing payload path: $target" >&2
+    head -n 60 "$workspace/payload-files.txt" >&2
+    exit 1
+  fi
+done
+echo "[native-macos] PKG payload verified"
 
 folder="$workspace/diskimage"
 mkdir -p "$folder"
