@@ -1,5 +1,6 @@
 """Authenticated FastAPI hub and outbound-agent WebSocket relay."""
 import asyncio
+import json
 import os
 import re
 import secrets
@@ -8,7 +9,6 @@ from typing import Any
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Security, WebSocket, WebSocketDisconnect
-from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
 
 from .models import JobCreate
@@ -54,24 +54,28 @@ def create_app(
         if client is None:
             return
         async with client.dispatch_lock:
-            for row in store.pending(agent_id):
-                if clients.get(agent_id) is not client:
+            while True:
+                pending = store.pending(agent_id)
+                if not pending:
                     return
-                if not store.mark_sent(row["id"]):
-                    continue
-                try:
-                    await client.send({
-                        "type": "job",
-                        "id": row["id"],
-                        "device_id": row["device_id"],
-                        "operation": row["operation"],
-                        "data_base64": row["data_base64"],
-                        "options": __import__("json").loads(row["options_json"]),
-                    })
-                except Exception:
-                    # Mark uncertain, NEVER automatically replay a possibly printed job.
-                    store.uncertain(agent_id)
-                    return
+                for row in pending:
+                    if clients.get(agent_id) is not client:
+                        return
+                    if not store.mark_sent(row["id"]):
+                        continue
+                    try:
+                        await client.send({
+                            "type": "job",
+                            "id": row["id"],
+                            "device_id": row["device_id"],
+                            "operation": row["operation"],
+                            "data_base64": row["data_base64"],
+                            "options": json.loads(row["options_json"]),
+                        })
+                    except Exception:
+                        # Mark uncertain, NEVER automatically replay a possibly printed job.
+                        store.uncertain(agent_id)
+                        return
 
     @app.get("/healthz")
     async def healthz():
