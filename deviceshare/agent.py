@@ -31,7 +31,7 @@ def load_config(path: str) -> dict:
     config = json.loads(Path(path).expanduser().read_text(encoding="utf-8"))
     if not isinstance(config, dict):
         raise ValueError("config must be a JSON object")
-    for key in ("allowed_printers", "allowed_serial_ports"):
+    for key in ("allowed_printers", "allowed_serial_ports", "allowed_hid_devices"):
         if not isinstance(config.get(key, []), list):
             raise ValueError(f"{key} must be a list")
     return config
