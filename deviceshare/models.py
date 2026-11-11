@@ -13,6 +13,7 @@ class Operation(str, Enum):
     PRINT_DOCUMENT = "print_document"
     SERIAL_EXCHANGE = "serial_exchange"
     SIMULATE = "simulate"
+    HID_READ = "hid_read"
 
 class JobCreate(BaseModel):
     agent_id: str = Field(min_length=1, max_length=80, pattern=r"^[a-zA-Z0-9_.-]+$")
@@ -35,6 +36,7 @@ class JobCreate(BaseModel):
             Operation.PRINT_DOCUMENT: "printer:",
             Operation.SERIAL_EXCHANGE: "serial:",
             Operation.SIMULATE: "sim:",
+            Operation.HID_READ: "hid:",
         }[self.operation]
         if not self.device_id.startswith(expected):
             raise ValueError(f"device_id must start with {expected}")
@@ -48,6 +50,18 @@ class JobCreate(BaseModel):
                 raise ValueError("unsupported baudrate")
             if type(read_size) is not int or not 0 <= read_size <= 4096:
                 raise ValueError("read_size must be 0..4096")
+        if self.operation == Operation.HID_READ:
+            from .hid_devices import HID_ID
+            if not HID_ID.fullmatch(self.device_id):
+                raise ValueError("invalid HID device identifier")
+            if raw:
+                raise ValueError("HID input read cannot include write data")
+            size = self.options.get("read_size", 64)
+            timeout = self.options.get("timeout_ms", 500)
+            if type(size) is not int or not 1 <= size <= 64:
+                raise ValueError("HID read_size must be 1..64")
+            if type(timeout) is not int or not 0 <= timeout <= 1000:
+                raise ValueError("HID timeout_ms must be 0..1000")
         if self.operation == Operation.SIMULATE and self.device_id != "sim:printer":
             raise ValueError("only sim:printer is implemented")
         return self
