@@ -87,7 +87,8 @@ struct DeviceShareHome: View {
                         .padding(.horizontal, 10)
                 }
                 .padding(11)
-                .frame(width: 177, maxHeight: .infinity, alignment: .topLeading)
+                .frame(width: 177)
+                .frame(maxHeight: .infinity, alignment: .topLeading)
                 .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
                 selectedPanel
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -234,6 +235,235 @@ struct DeviceShareHome: View {
                 }
             }
             .padding(12)
+        }
+    }
+
+
+    private var printerPanel: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Printers")
+                        .font(.title2.bold())
+                    Text("Select a Mac printer queue, approve it locally, then use it in Print Studio.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button {
+                    controller.scanDevices()
+                } label: {
+                    Label("Scan printers", systemImage: "arrow.clockwise")
+                }
+                .disabled(controller.isBusy)
+            }
+
+            if controller.availablePrinters.isEmpty {
+                VStack(spacing: 11) {
+                    Image(systemName: "printer.slash")
+                        .font(.system(size: 37))
+                        .foregroundStyle(.secondary)
+                    Text("No printers discovered")
+                        .font(.headline)
+                    Text("Check System Settings → Printers & Scanners, then scan again.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(controller.availablePrinters) { printer in
+                            VStack(alignment: .leading, spacing: 11) {
+                                HStack(spacing: 13) {
+                                    Image(systemName: "printer.fill")
+                                        .font(.system(size: 23))
+                                        .foregroundStyle(Color.accentColor)
+                                        .frame(width: 47, height: 47)
+                                        .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(printer.label)
+                                            .font(.headline)
+                                        Text(printer.state == "disabled"
+                                             ? "Queue disabled — do not submit jobs"
+                                             : "CUPS queue available — physical status not verified")
+                                            .font(.caption)
+                                            .foregroundStyle(printer.state == "disabled" ? Color.orange : Color.secondary)
+                                        Text(printer.id)
+                                            .font(.caption.monospaced())
+                                            .foregroundStyle(.tertiary)
+                                            .textSelection(.enabled)
+                                    }
+                                    Spacer()
+                                    Toggle("Approved", isOn: Binding(
+                                        get: { controller.isApproved(printer) },
+                                        set: { controller.setApproved(printer, enabled: $0) }
+                                    ))
+                                    .toggleStyle(.switch)
+                                    .labelsHidden()
+                                }
+                                HStack {
+                                    if controller.selectedPrinterID == printer.id {
+                                        Label("Selected", systemImage: "checkmark.circle.fill")
+                                            .font(.caption)
+                                            .foregroundStyle(Color.green)
+                                    }
+                                    Spacer()
+                                    Button(controller.selectedPrinterID == printer.id ? "Selected" : "Select printer") {
+                                        controller.choosePrinter(printer.id)
+                                    }
+                                    .disabled(printer.state == "disabled")
+                                    Button("Open Print Studio") {
+                                        controller.choosePrinter(printer.id)
+                                        currentTab = .studio
+                                    }
+                                    .disabled(printer.state == "disabled")
+                                    .buttonStyle(.borderedProminent)
+                                }
+                            }
+                            .padding(16)
+                            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                }
+            }
+            HStack {
+                Image(systemName: "info.circle")
+                    .foregroundStyle(.orange)
+                Text("A queue can be enabled even when your HP printer is offline. Verify paper, ink and network before printing.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Save Printer Approvals") { controller.saveApprovals() }
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(12)
+        .onAppear {
+            if controller.availablePrinters.isEmpty { controller.scanDevices() }
+        }
+    }
+
+    private var studioPanel: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 15) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Print Studio")
+                        .font(.title2.bold())
+                    Text("Test pages, custom text, or PDF/PNG documents using an explicitly selected printer.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 11) {
+                        Text("1. Choose destination")
+                            .font(.headline)
+                        Picker("Printer", selection: Binding(
+                            get: { controller.selectedPrinterID },
+                            set: { controller.choosePrinter($0) }
+                        )) {
+                            Text("Select a printer").tag("")
+                            ForEach(controller.availablePrinters) { printer in
+                                Text(printer.label).tag(printer.id)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        HStack {
+                            Label(controller.printerReady ? "Printer selected and locally approved" :
+                                  "Approve a printer and pair this station to print",
+                                  systemImage: controller.printerReady ? "checkmark.shield.fill" : "exclamationmark.triangle")
+                                .font(.caption)
+                                .foregroundStyle(controller.printerReady ? Color.green : Color.orange)
+                            Spacer()
+                            Button("Manage printers") { currentTab = .printers }
+                        }
+                        Text("Queue status alone does not confirm the physical printer is online.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("2. Print options")
+                            .font(.headline)
+                        HStack {
+                            Stepper("Copies: \(controller.copies)", value: $controller.copies, in: 1...5)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            Picker("Paper", selection: $controller.paperSize) {
+                                Text("US Letter").tag("Letter")
+                                Text("A4").tag("A4")
+                            }
+                            .frame(width: 155)
+                            Toggle("Duplex", isOn: $controller.printDuplex)
+                                .frame(width: 94)
+                        }
+                    }
+                }
+
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("3. Test page")
+                            .font(.headline)
+                        Text("A one-page PDF checks printer alignment, grayscale and text. Each click sends a separate physical print job.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        HStack {
+                            Button {
+                                controller.submitTestPrint()
+                            } label: {
+                                Label("Print Test Page", systemImage: "printer.fill")
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!controller.printerReady || controller.printInProgress)
+                            Spacer()
+                            Text("Use single-sided Letter unless your printer requires A4.")
+                                .font(.caption).foregroundStyle(.tertiary)
+                        }
+                    }
+                }
+
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("4. Custom print")
+                            .font(.headline)
+                        TextField("Document title", text: $controller.customPrintTitle)
+                            .textFieldStyle(.roundedBorder)
+                        TextEditor(text: $controller.customPrintText)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(minHeight: 125, maxHeight: 175)
+                            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.secondary.opacity(0.2)))
+                        HStack {
+                            Button("Print Custom Text") { controller.submitCustomText() }
+                                .disabled(!controller.printerReady || controller.printInProgress ||
+                                          controller.customPrintText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            Button("Choose PDF / PNG…") { controller.chooseDocumentAndPrint() }
+                                .disabled(!controller.printerReady || controller.printInProgress)
+                            Spacer()
+                        }
+                    }
+                }
+
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("Job status").font(.headline)
+                        Text(controller.printStatus)
+                            .font(.callout).foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                        if !controller.lastPrintJobID.isEmpty {
+                            Text("Job ID: " + controller.lastPrintJobID)
+                                .font(.caption.monospaced()).textSelection(.enabled)
+                        }
+                        HStack {
+                            Spacer()
+                            Button("View activity in Hub") { controller.openDashboard() }
+                        }
+                    }
+                }
+            }
+            .padding(12)
+        }
+        .onAppear {
+            if controller.availablePrinters.isEmpty { controller.scanDevices() }
         }
     }
 
