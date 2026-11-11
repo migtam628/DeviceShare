@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.0-alpha.2 — Native installer prerelease (2026-11-11)
+
+- Added Windows x64 WiX MSI and Inno Setup EXE installers.
+- Added Apple Silicon/Intel macOS PKG installers and DMG images containing the PKG.
+- Added Debian/Ubuntu AMD64 DEB installer.
+- Installed packages contain both the DeviceShare Hub and Agent, example config and setup documentation.
+- Release uses automated unit tests, cross-platform frozen executable smoke tests, native package validation, signed-by-hash SHA256 manifest, and GitHub Release uploads.
+- Installation leaves pairing, device approval and service activation to the administrator; no network listeners are started automatically.
+- All native packages are unsigned; macOS packages are not notarized, and physical-hardware acceptance is still pending.
+
 ## Unreleased - 0.2.0 development
 
 ### Added
