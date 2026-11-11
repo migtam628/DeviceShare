@@ -54,7 +54,7 @@ jobs:
       - name: Build hub binary
         shell: bash
         run: |
-          python -m PyInstaller --clean --onefile --name "deviceshare-hub-${{ matrix.suffix }}" --collect-all uvicorn --collect-all fastapi scripts/hub_launcher.py
+          python -m PyInstaller --clean --onefile --name "deviceshare-hub-${{ matrix.suffix }}" --collect-all uvicorn --collect-all fastapi --collect-data deviceshare scripts/hub_launcher.py
       - uses: actions/upload-artifact@v4
         with:
           name: binaries-${{ matrix.suffix }}
