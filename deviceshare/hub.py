@@ -1,4 +1,5 @@
 """Authenticated FastAPI hub and outbound-agent WebSocket relay."""
+import argparse
 import asyncio
 from importlib.resources import files
 import json
@@ -209,6 +210,9 @@ def create_app(
     return app
 
 def main():
+    parser = argparse.ArgumentParser(description="DeviceShare HTTP hub")
+    parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a1")
+    args = parser.parse_args()
     # Loopback by default. For remote access, put TLS and authentication in front.
     uvicorn.run(create_app(), host=os.getenv("DEVICESHARE_HOST", "127.0.0.1"),
                 port=int(os.getenv("DEVICESHARE_PORT", "8765")))
