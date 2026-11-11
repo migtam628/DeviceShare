@@ -278,6 +278,7 @@ class Store:
         digest = hashlib.sha256(code.encode("utf-8")).hexdigest() if isinstance(code, str) and len(code) <= 128 else ""
         if not hmac.compare_digest(row["code_sha256"], digest):
             db.execute("UPDATE activation_codes SET failed_attempts=failed_attempts+1 WHERE singleton=1")
+            db.commit()  # Persist failed attempts despite rejecting this transaction.
             raise ValueError("Incorrect setup code. Generate a new code after five failed attempts.")
 
     def activate_admin(self, code: str, email: str, password: str) -> str:
