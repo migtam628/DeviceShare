@@ -6,5 +6,6 @@
   "simulator_dir": "./data/simulator",
   "allowed_printers": [],
   "allowed_serial_ports": [],
+  "allowed_hid_devices": [],
   "allow_insecure_remote": false
 }
