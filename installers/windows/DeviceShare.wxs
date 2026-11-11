@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WiX Toolset v5. The payload is built on the Windows runner by PyInstaller. -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="DeviceShare" Manufacturer="MT Tech Services LLC"
+           Version="0.2.2" UpgradeCode="a20ab092-acb4-416d-9f13-a1e58749c406"
+           Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer DeviceShare version is already installed."/>
+    <MediaTemplate EmbedCab="yes"/>
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="DeviceShare"/>
+    </StandardDirectory>
+    <Feature Id="MainFeature" Title="DeviceShare Agent and Hub" Level="1">
+      <ComponentGroupRef Id="ApplicationFiles"/>
+    </Feature>
+  </Package>
+  <Fragment>
+    <ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER">
+      <Component Id="AgentExecutable" Guid="*">
+        <File Id="AgentFile" Source="$(var.SourceRoot)\dist\deviceshare-agent-windows-x64.exe" KeyPath="yes"/>
+      </Component>
+      <Component Id="HubExecutable" Guid="*">
+        <File Id="HubFile" Source="$(var.SourceRoot)\dist\deviceshare-hub-windows-x64.exe" KeyPath="yes"/>
+      </Component>
+      <Component Id="AgentExample" Guid="*" Subdirectory="config">
+        <File Id="AgentExampleFile" Source="$(var.SourceRoot)\config\agent.example.json" KeyPath="yes"/>
+      </Component>
+      <Component Id="InstallInstructions" Guid="*" Subdirectory="docs">
+        <File Id="InstallInstructionsFile" Source="$(var.SourceRoot)\docs\INSTALL_NATIVE.md" KeyPath="yes"/>
+      </Component>
+      <Component Id="SecurityInstructions" Guid="*" Subdirectory="docs">
+        <File Id="SecurityInstructionsFile" Source="$(var.SourceRoot)\SECURITY.md" KeyPath="yes"/>
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
