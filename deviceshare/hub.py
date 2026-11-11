@@ -162,26 +162,15 @@ def create_app(
                         store.uncertain(agent_id)
                         return
 
-    @app.get("/settings", response_class=HTMLResponse, include_in_schema=False)
-    async def settings():
-        return HTMLResponse(
-            content=files("deviceshare").joinpath("settings.html").read_text(encoding="utf-8"),
-            headers={
-                "Cache-Control": "no-store",
-                "Referrer-Policy": "no-referrer",
-                "X-Frame-Options": "DENY",
-                "Content-Security-Policy": (
-                    "default-src 'none'; script-src 'unsafe-inline'; "
-                    "style-src 'unsafe-inline'; connect-src 'self'; "
-                    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
-                ),
-            },
-        )
-
     @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
-    async def dashboard():
+    @app.get("/printers", response_class=HTMLResponse, include_in_schema=False)
+    @app.get("/studio", response_class=HTMLResponse, include_in_schema=False)
+    @app.get("/jobs", response_class=HTMLResponse, include_in_schema=False)
+    @app.get("/devices", response_class=HTMLResponse, include_in_schema=False)
+    @app.get("/settings", response_class=HTMLResponse, include_in_schema=False)
+    async def console_ui():
         return HTMLResponse(
-            content=files("deviceshare").joinpath("dashboard.html").read_text(encoding="utf-8"),
+            content=files("deviceshare").joinpath("console.html").read_text(encoding="utf-8"),
             headers={
                 "Cache-Control": "no-store",
                 "Referrer-Policy": "no-referrer",
