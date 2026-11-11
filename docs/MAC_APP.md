@@ -39,6 +39,20 @@ USB drivers, blanket printer access or automatic start of its network services.
 - The default hub remains local; the app does not expose it remotely
   or configure TLS on your behalf.
 
+## Selecting printers and running test prints (alpha.4)
+
+DeviceShare.app now uses a sidebar with separate **Printers**, **Print Studio**, **Local Devices**, **Services** and **Settings** sections.
+
+1. **Printers:** scan your macOS queues, choose the specific printer you intend to use and enable its local **Approved** switch. Save approvals, then restart the Agent under Services. An enabled queue is not necessarily physically connected.
+2. **Print Studio:** select the approved queue, choose **copies (1–5)**, **US Letter or A4**, and optional double-sided printing. The **Print Test Page** action submits a single PDF containing identity, time, grayscale swatches, and an alignment border.
+3. **Custom print:** enter a title and custom text (up to 12,000 characters), then press **Print Custom Text**. The Hub creates a bounded PDF and sends it to the selected station.
+4. **Document print:** choose a PDF or PNG (up to 1 MiB) and send it to the selected printer. Windows PDF/PNG rendering is not yet supported; macOS/Linux use CUPS.
+5. **Activity:** open the web Hub's Activity page to inspect job state. **Accepted** means accepted by the OS spooler, not proof the paper emerged.
+
+CUPS `lpstat -p` reports queue state, whereas network/USB hardware can still be offline. Check your HP ENVY's queue and physical connection before repeatedly submitting print jobs.
+
+The **Settings** tab can optionally keep a remote Hub administrator key in the macOS **Keychain** (not in agent.json). The local Hub already keeps its key in a private file. The browser Settings page can remember a revocable login session without saving the raw administrator key in localStorage.
+
 ## Device approval model
 
 | Device | Alpha permission model |
