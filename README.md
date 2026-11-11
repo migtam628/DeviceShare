@@ -2,20 +2,33 @@
 
 **DeviceShare** is a self-hosted peripheral bridge for sending print jobs and communicating with locally attached hardware from websites, POS applications, inventory systems, and remote servers.
 
-**Project status: v0.2.0-alpha.2.** Native installer prerelease is available, but it is unsigned and not production-hardened. Do not connect to untrusted devices, commands, or the open internet.
+**Project status: v0.2.0-alpha.3.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not connect to untrusted devices, commands, or the open internet.
 
 ## Native installation packages
 
-**[Download DeviceShare v0.2.0-alpha.2](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.2)**
+**[Download DeviceShare v0.2.0-alpha.3](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.3)**
 
 | Platform | Native installer |
 | --- | --- |
-| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.2/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.2/DeviceShare-Setup-windows-x64.exe) |
-| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.2/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.2/DeviceShare-macos-arm64.pkg) |
-| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.2/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.2/DeviceShare-macos-x64.pkg) |
-| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.2/DeviceShare_0.2.0.alpha2_amd64.deb) |
+| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-Setup-windows-x64.exe) |
+| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-macos-arm64.pkg) |
+| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-macos-x64.pkg) |
+| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare_0.2.0.alpha3_amd64.deb) |
 
-Read **[native installer setup, pairing, and uninstall instructions](docs/INSTALL_NATIVE.md)** and compare downloads with the release's `SHA256SUMS.txt`. Installer files include both the Agent and Hub; they do not automatically run the hardware agent, authorize peripherals, or install OS drivers. They are **not code-signed or notarized**. Portable ZIP builds remain available.
+Read **[native installer setup](docs/INSTALL_NATIVE.md)** and compare downloads with the release's `SHA256SUMS.txt`. Installer files include both the Agent and Hub; they do not automatically authorize peripherals or install OS drivers. Portable ZIP builds remain available.
+
+### DeviceShare.app on macOS
+
+The Apple Silicon and Intel packages now include a **real SwiftUI application** at `/Applications/DeviceShare.app`, alongside the headless tools. The DMG contains the app for dragging into Applications or a PKG to install both the app and command-line links.
+
+Launch it from Applications and follow these steps:
+
+1. **Start Local Hub** (or enter a trusted remote HTTPS hub URL).
+2. Enter and save a station ID; **Pair / Rotate Credential** using the local hub key or a remote administrator key.
+3. Scan and selectively approve local printers, serial devices and HID inputs.
+4. **Start / Restart** the agent under Background services; confirm its online state in the web dashboard.
+
+User configuration, credentials, logs and database live under `~/Library/Application Support/DeviceShare/`. The app starts services **only when you explicitly request it**. See the [macOS walkthrough](docs/MAC_APP.md). The app is ad-hoc signed for platform integrity; it is not Apple Developer ID–signed or notarized.
 
 ## Current implementation
 
@@ -38,8 +51,10 @@ Read **[native installer setup, pairing, and uninstall instructions](docs/INSTAL
 | Station-specific tokens, rotation, revocation | Implemented in hub API and dashboard |
 | Web management dashboard | Implemented (inventory, jobs, station credentials) |
 | Per-user agent auto-start | Linux systemd, macOS launchd, Windows Scheduled Task scripts |
-| Unsigned native installer packages (MSI, EXE, DMG, PKG, DEB) | Released in alpha.2 |
-| Multi-user RBAC, signed/notarized releases and graphical onboarding | **Not implemented yet** |
+| Native installer packages (MSI, EXE, DMG, PKG, DEB) | Released in alpha.3 |
+| macOS SwiftUI setup, station pairing, device approvals, local hub and launchd controls | Implemented in alpha.3 |
+| Windows/Linux desktop GUI, code signing, notarization | **Not implemented yet** |
+| Multi-user RBAC and production-grade monitoring | **Not implemented yet** |
 
 For protocol details, security, and the roadmap, read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -126,7 +141,7 @@ python -m pytest -q
 
 GitHub Actions tests on Windows, macOS, and Linux. The [portable preview workflow](https://github.com/migtam628/DeviceShare/actions/workflows/preview.yml) builds and smoke-tests Windows x64, Linux x64, Intel Mac and Apple Silicon Mac executables. On a matching tag like `v0.2.0-alpha.1`, the [release workflow](https://github.com/migtam628/DeviceShare/actions/workflows/release.yml) publishes ZIPs with checksums only after version validation, unit tests and portable smoke tests pass. See [agent installation](docs/INSTALL_AGENT.md).
 
-Current priority: validate native installers and permissions on physical Windows/Mac/Linux machines, sign/notarize distribution packages, test real printers/HID readers, and add guided agent pairing plus scoped API permissions.
+Current priority: validate the new macOS app on real user sessions (including login persistence), complete real-printer/HID acceptance, add signing/notarization, develop Windows/Linux GUI onboarding and scoped API permissions.
 
 ## Intended integrations
 
