@@ -12,7 +12,8 @@ dependencies = [
   "fastapi>=0.115,<1",
   "uvicorn>=0.30,<1",
   "websockets>=14,<17",
-  "pyserial>=3.5,<4"
+  "pyserial>=3.5,<4",
+  "reportlab>=4.2,<5"
 ]
 
 [project.optional-dependencies]
