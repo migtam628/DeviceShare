@@ -1,3 +1,5 @@
+# Changelog
+
 ## Unreleased - 0.2.0 development
 
 ### Added
@@ -10,8 +12,6 @@
 ### Remaining
 - Native operating-system installers, production pairing approvals and RBAC, safe HID/USB plugins and multi-user audit.
 - Release workflow binaries still require full verification.
-
-# Changelog
 
 ## Unreleased - 0.1.0 alpha foundation
 
