@@ -30,6 +30,19 @@ Launch it from Applications and follow these steps:
 
 User configuration, credentials, logs and database live under `~/Library/Application Support/DeviceShare/`. The app starts services **only when you explicitly request it**. See the [macOS walkthrough](docs/MAC_APP.md). The app is ad-hoc signed for platform integrity; it is not Apple Developer ID–signed or notarized.
 
+## Print Studio and separated console pages (alpha.4)
+
+Open the local Hub at `http://127.0.0.1:8765/dashboard` and use the sidebar:
+
+- **Overview:** connected stations, printer counts and job health.
+- **Printers:** choose a discovered OS queue on an online agent.
+- **Print Studio:** send a DeviceShare PDF test page, custom text PDF, or PDF/PNG document with paper size, copies and duplex options.
+- **Activity:** job history, OS spooler results and failures.
+- **Devices:** discovery and station token management.
+- **Settings:** remember a revocable 30-day browser session (HttpOnly cookie, not a stored raw API key), sign out other browsers and adjust refresh interval.
+
+On macOS the native `DeviceShare.app` also has a sidebar with a selectable **Printers** page and **Print Studio**. Print jobs still require exact station-local allowlist approval and physical output verification. CUPS queue enabled does not imply a physically available printer. Windows PDF/PNG print rendering remains pending.
+
 ## Current implementation
 
 | Capability | Alpha status |
