@@ -96,6 +96,7 @@ async def run(config: dict):
 
 def main():
     parser = argparse.ArgumentParser(description="DeviceShare local agent")
+    parser.add_argument("--version", action="version", version="DeviceShare Agent 0.2.0a1")
     parser.add_argument("--config", default=os.environ.get(
         "DEVICESHARE_AGENT_CONFIG", "./config/agent.json"))
     args = parser.parse_args()
