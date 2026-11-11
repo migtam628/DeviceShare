@@ -2,19 +2,21 @@ name: Build GitHub Release
 
 on:
   push:
-    branches: [main]
-    paths:
-      - ".github/workflows/release.yml"
     tags:
       - "v*-alpha.*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Prerelase tag, e.g. v0.2.0-alpha.2"
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 env:
-  # Branch push produces the first fully packaged native alpha; version tags
-  # are still supported for subsequent releases.
-  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2.0-alpha.2' }}
+  # Future releases are explicit version tags or an intentional manual dispatch.
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
 
 jobs:
   test:
@@ -106,7 +108,7 @@ jobs:
             DeviceShare-macos-arm64.dmg \
             DeviceShare-macos-x64.pkg \
             DeviceShare-macos-x64.dmg \
-            DeviceShare_0.2.0~alpha2_amd64.deb; do
+            DeviceShare_0.2.0.alpha2_amd64.deb; do
             test -s "$package" || { echo "Missing release asset $package"; exit 1; }
           done
           sha256sum DeviceShare* > SHA256SUMS.txt
