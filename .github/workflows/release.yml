@@ -29,8 +29,10 @@ jobs:
             suffix: linux-x64
           - os: windows-latest
             suffix: windows-x64
-          - os: macos-14
+          - os: macos-15
             suffix: macos-arm64
+          - os: macos-15-intel
+            suffix: macos-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
