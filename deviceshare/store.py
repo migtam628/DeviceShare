@@ -1,6 +1,7 @@
 """SQLite job ledger; no automatic retry after a job is sent to hardware."""
 import json
 import sqlite3
+from contextlib import contextmanager
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,18 +32,29 @@ class Store:
             CREATE INDEX IF NOT EXISTS idx_jobs_agent_status
                 ON jobs(agent_id, status, created_at);
             """)
+            # Crash recovery: sent jobs may have reached hardware. Never replay.
+            db.execute("UPDATE jobs SET status='unknown', updated_at=? WHERE status='sent'", (now(),))
 
+    @contextmanager
     def connect(self):
         db = sqlite3.connect(self.path, timeout=30)
         db.row_factory = sqlite3.Row
-        return db
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
 
     @staticmethod
     def public(row):
         item = dict(row)
         item.pop("data_base64", None)
         item["options"] = json.loads(item.pop("options_json"))
-        item["result"] = json.loads(item.pop("result_json")) if item.get("result_json") else None
+        result_json = item.pop("result_json")
+        item["result"] = json.loads(result_json) if result_json else None
         return item
 
     def create(self, job: dict):
