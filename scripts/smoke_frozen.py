@@ -63,12 +63,26 @@ def check_hub(binary: str):
                 print(Path(temp, "hub.log").read_text(errors="replace"), file=sys.stderr)
                 raise
             finally:
-                server.terminate()
-                try:
-                    server.wait(timeout=10)
-                except subprocess.TimeoutExpired:
-                    server.kill()
-                    server.wait(timeout=10)
+                if os.name == "nt":
+                    # PyInstaller onefile runs a parent bootloader and child process.
+                    # Terminating only the parent leaves the child holding log/DB files,
+                    # which blocks TemporaryDirectory cleanup on Windows.
+                    subprocess.run(
+                        ["taskkill", "/PID", str(server.pid), "/T", "/F"],
+                        capture_output=True, text=True, timeout=15, check=False,
+                    )
+                    try:
+                        server.wait(timeout=15)
+                    except subprocess.TimeoutExpired:
+                        server.kill()
+                        server.wait(timeout=5)
+                else:
+                    server.terminate()
+                    try:
+                        server.wait(timeout=10)
+                    except subprocess.TimeoutExpired:
+                        server.kill()
+                        server.wait(timeout=10)
 
 
 def main():
