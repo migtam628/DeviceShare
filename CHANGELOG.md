@@ -1,3 +1,16 @@
+## Unreleased - 0.2.0 development
+
+### Added
+- Browser-based DeviceShare management console at `/dashboard`.
+- Station-specific agent credentials with secure token hashes, rotation and revocation.
+- Periodic agent hardware inventory refresh.
+- Added agent token-file support, dashboard packaging and pairing/security tests.
+- Legacy shared agent secret is now optional and never overrides a paired station.
+
+### Remaining
+- Native operating-system installers, production pairing approvals and RBAC, safe HID/USB plugins and multi-user audit.
+- Release workflow binaries still require full verification.
+
 # Changelog
 
 ## Unreleased - 0.1.0 alpha foundation
