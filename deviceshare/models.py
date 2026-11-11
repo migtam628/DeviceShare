@@ -43,6 +43,15 @@ class JobCreate(BaseModel):
         if self.operation == Operation.PRINT_DOCUMENT:
             if self.options.get("mime_type") not in ("application/pdf", "image/png"):
                 raise ValueError("print_document requires mime_type application/pdf or image/png")
+            copies = self.options.get("copies", 1)
+            media = self.options.get("media", "Letter")
+            sides = self.options.get("sides", "one-sided")
+            if type(copies) is not int or not 1 <= copies <= 5:
+                raise ValueError("copies must be an integer from 1 to 5")
+            if media not in ("Letter", "A4") or sides not in ("one-sided", "two-sided-long-edge"):
+                raise ValueError("unsupported print media or sides option")
+            if any(k not in ("mime_type", "copies", "media", "sides") for k in self.options):
+                raise ValueError("unsupported document print option")
         if self.operation == Operation.SERIAL_EXCHANGE:
             baud = self.options.get("baudrate", 9600)
             read_size = self.options.get("read_size", 0)
