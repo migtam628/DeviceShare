@@ -1,5 +1,6 @@
 """End-to-end test-page dispatch to an authenticated online DeviceShare agent."""
 import base64
+import time
 from fastapi.testclient import TestClient
 
 from deviceshare.hub import create_app
@@ -29,9 +30,14 @@ def test_preview_pages_and_print_studio_dispatch(tmp_path):
             headers = {"X-API-Key": ADMIN}
             body = {"agent_id": "station", "device_id": "printer:HP_ENVY_6000",
                     "copies": 1, "media": "Letter", "sides": "one-sided"}
-            # Access the inventory (WebSocket is processed asynchronously).
-            response = client.get("/v1/agents", headers=headers)
+            # Allow the agent's inventory event to reach the server.
+            for _ in range(30):
+                response = client.get("/v1/agents", headers=headers)
+                if response.json() and response.json()[0]["devices"]:
+                    break
+                time.sleep(0.02)
             assert response.status_code == 200
+            assert response.json()[0]["devices"]
             result = client.post("/v1/print/test", headers=headers, json=body)
             assert result.status_code == 202
             dispatched = socket.receive_json()
