@@ -59,3 +59,21 @@ Content-Type: application/json
 The caller must not assume status `accepted` proves the printer produced output. Job ID and timestamps can be used to reconcile physical processing.
 
 For browser apps, send requests through your own trusted backend instead of embedding the hub API key in client-side JavaScript.
+
+## Approved HID input read
+
+Install the optional `hidapi` dependency (`pip install 'deviceshare[hid]'`).
+Use the local agent's reported `hid:vvvv:pppp:hhhhhhhhhhhhhhhh` device ID, and add
+that exact ID to `allowed_hid_devices` in the agent config. Restart the agent
+for new config to take effect. Then request a short input report:
+
+```bash
+python examples/send_job.py --agent station-01 \\
+  --device hid:1a2b:3c4d:0123456789abcdef --operation hid_read \\
+  --read-size 64 --timeout-ms 500
+```
+
+Replace the sample ID with the discovered device's exact identifier. The
+reported bytes arrive as `received_base64`. This is **input only**:
+HID output reports, feature reports, keyboard injection, and unrestricted
+USB bulk/control operations are not supported.
