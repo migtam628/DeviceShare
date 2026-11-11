@@ -222,13 +222,10 @@ struct DeviceShareHome: View {
                         } else {
                             TextField("Email address", text: $controller.adminSetupEmail)
                                 .textFieldStyle(.roundedBorder)
-                                .textContentType(.emailAddress)
                             SecureField("Create password (12+ characters)", text: $controller.adminSetupPassword)
                                 .textFieldStyle(.roundedBorder)
-                                .textContentType(.newPassword)
                             SecureField("Confirm password", text: $controller.adminSetupConfirmation)
                                 .textFieldStyle(.roundedBorder)
-                                .textContentType(.newPassword)
                             Text(controller.activationMessage)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
