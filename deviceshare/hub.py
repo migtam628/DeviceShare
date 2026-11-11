@@ -1,5 +1,6 @@
 """Authenticated FastAPI hub and outbound-agent WebSocket relay."""
 import argparse
+import base64
 import asyncio
 import hashlib
 import hmac
@@ -19,6 +20,7 @@ from fastapi.security import APIKeyHeader
 from urllib.parse import urlsplit
 
 from .models import JobCreate
+from .printing import PrintSubmission, TextSubmission, render_pdf
 from .store import Store
 
 auth_header = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -252,6 +254,49 @@ def create_app(
         await deliver(job.agent_id)
         return item
 
+    def submit_pdf_job(payload: PrintSubmission, pdf_data: bytes):
+        connection = clients.get(payload.agent_id)
+        if connection is None:
+            raise HTTPException(status_code=409, detail="Selected agent is offline. No print job was created.")
+        available = {d.get("id"): d for d in connection.devices if d.get("kind") == "printer"}
+        printer = available.get(payload.device_id)
+        if printer is None:
+            raise HTTPException(status_code=409, detail="Printer not found in live station inventory. No job created.")
+        if printer.get("state") == "disabled":
+            raise HTTPException(status_code=409, detail="Selected CUPS queue is disabled. No job created.")
+        if len(pdf_data) > 1024 * 1024:
+            raise HTTPException(status_code=422, detail="Generated PDF exceeds 1 MiB")
+        job = JobCreate(
+            agent_id=payload.agent_id,
+            device_id=payload.device_id,
+            operation="print_document",
+            data_base64=base64.b64encode(pdf_data).decode("ascii"),
+            options={"mime_type": "application/pdf", "copies": payload.copies,
+                     "media": payload.media, "sides": payload.sides},
+        )
+        return store.create(job.model_dump(mode="json"))
+
+    @app.post("/v1/print/test", status_code=202, dependencies=[Depends(require_api_key)])
+    async def print_test(payload: PrintSubmission):
+        if payload.agent_id not in clients:
+            raise HTTPException(status_code=409, detail="Selected agent is offline. No print job was created.")
+        pdf = render_pdf(payload, test_page=True)
+        job = submit_pdf_job(payload, pdf)
+        await deliver(payload.agent_id)
+        return {**job, "notice": "Sent to the selected station. OS spooler acceptance does not confirm physical output."}
+
+    @app.post("/v1/print/text", status_code=202, dependencies=[Depends(require_api_key)])
+    async def print_text(payload: TextSubmission):
+        if payload.agent_id not in clients:
+            raise HTTPException(status_code=409, detail="Selected agent is offline. No print job was created.")
+        try:
+            pdf = render_pdf(payload, test_page=False)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        job = submit_pdf_job(payload, pdf)
+        await deliver(payload.agent_id)
+        return {**job, "notice": "Text PDF sent to the selected station. Check the physical printer."}
+
     @app.websocket("/v1/agents/{agent_id}/ws")
     async def agent_socket(ws: WebSocket, agent_id: str):
         key = ws.headers.get("x-agent-token", "")
@@ -282,7 +327,8 @@ def create_app(
                     if isinstance(raw, list):
                         link.devices = [
                             {"id": str(d["id"])[:300], "kind": str(d.get("kind", ""))[:40],
-                             "label": str(d.get("label", ""))[:200]}
+                             "label": str(d.get("label", ""))[:200],
+                             "state": str(d.get("state", "unknown"))[:32]}
                             for d in raw[:200]
                             if isinstance(d, dict) and isinstance(d.get("id"), str)
                         ]
