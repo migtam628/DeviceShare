@@ -31,6 +31,8 @@ final class DeviceShareController: ObservableObject {
     @Published var agentState = "Stopped"
     @Published var localHubState = "Stopped"
     @Published var notice = "Choose a local hub or enter the URL of a trusted remote hub."
+    @Published var agentConnected = false
+    @Published var agentConnectivityNote = "Station connection not checked"
     @Published var adminActivated = false
     @Published var adminSetupEmail = ""
     @Published var adminSetupPassword = ""
@@ -259,25 +261,30 @@ final class DeviceShareController: ObservableObject {
 
     func refreshActivationStatus() {
         Task {
-            do {
-                let hub = try validatedHubURL()
-                var request = URLRequest(url: hub.appendingPathComponent("v1/auth/status"))
-                request.timeoutInterval = 8
-                let (data, response) = try await URLSession.shared.data(for: request)
-                guard (response as? HTTPURLResponse)?.statusCode == 200,
-                      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-                    adminActivated = false
-                    activationMessage = "Could not read Hub activation status."
+            for attempt in 0..<10 {
+                do {
+                    let hub = try validatedHubURL()
+                    var request = URLRequest(url: hub.appendingPathComponent("v1/auth/status"))
+                    request.timeoutInterval = 3
+                    let (data, response) = try await URLSession.shared.data(for: request)
+                    guard (response as? HTTPURLResponse)?.statusCode == 200,
+                          let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                        throw NSError(domain: "DeviceShare", code: 186,
+                                      userInfo: [NSLocalizedDescriptionKey: "Account status unavailable"])
+                    }
+                    adminActivated = json["activated"] as? Bool == true
+                    activationMessage = adminActivated
+                        ? "Account active. Sign into the web dashboard with your email and password."
+                        : "Create your owner account here. Your private machine key will not appear in the browser."
                     return
+                } catch {
+                    if attempt < 9 {
+                        try? await Task.sleep(nanoseconds: 350_000_000)
+                    }
                 }
-                adminActivated = json["activated"] as? Bool == true
-                activationMessage = adminActivated
-                    ? "Account activated. Sign into the browser with your email and password."
-                    : "Create your owner account here. DeviceShare will keep the private Host API key out of the browser."
-            } catch {
-                adminActivated = false
-                activationMessage = "Start the local Hub before activating your account."
             }
+            adminActivated = false
+            activationMessage = "Local Hub is not responding. Check Services and retry."
         }
     }
 
@@ -644,10 +651,56 @@ final class DeviceShareController: ObservableObject {
     }
 
     func refreshServices() {
-        agentState = isLoaded(agentLabel) ? "LaunchAgent loaded" : "Stopped"
+        agentState = isLoaded(agentLabel) ? "Checking connection…" : "Stopped"
+        agentConnected = false
         localHubState = isLoaded(hubLabel) ? "Local hub service loaded" : "Stopped"
         objectWillChange.send()
         checkHubHealth()
+        checkAgentConnection()
+    }
+
+    func checkAgentConnection() {
+        Task {
+            let loaded = isLoaded(agentLabel)
+            if !loaded {
+                agentConnected = false
+                agentState = "Stopped"
+                agentConnectivityNote = "Enable the Peripheral Agent in Services."
+                return
+            }
+            do {
+                let hub = try validatedHubURL()
+                let key = localHubKey(for: hub) ?? rememberedKey(for: hub)
+                    ?? adminAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard key.count >= 16 else {
+                    agentConnected = false
+                    agentState = "Service loaded · connection unverified"
+                    agentConnectivityNote = "A remote Hub integration key is required to verify this station."
+                    return
+                }
+                var request = URLRequest(url: hub.appendingPathComponent("v1/agents"))
+                request.setValue(key, forHTTPHeaderField: "X-API-Key")
+                request.timeoutInterval = 6
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200,
+                      let stations = try JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+                    throw NSError(domain: "DeviceShare", code: 185,
+                                  userInfo: [NSLocalizedDescriptionKey: "Hub could not verify station status"])
+                }
+                let online = stations.contains(where: {
+                    ($0["agent_id"] as? String) == stationID && ($0["online"] as? Bool) == true
+                })
+                agentConnected = online
+                agentState = online ? "Connected to Hub" : "Service loaded · offline"
+                agentConnectivityNote = online
+                    ? "Station " + stationID + " is online and available for printing."
+                    : "Agent registered with launchd but the Hub sees this station offline. Check its token and error logs."
+            } catch {
+                agentConnected = false
+                agentState = "Service loaded · connection error"
+                agentConnectivityNote = "Unable to verify agent connection: " + error.localizedDescription
+            }
+        }
     }
 
     func checkHubHealth() {
