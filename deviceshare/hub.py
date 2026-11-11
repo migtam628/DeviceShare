@@ -118,7 +118,7 @@ def create_app(
     @app.get("/v1/auth/status")
     async def admin_status(request: Request, response: Response):
         account = store.admin_account()
-        authenticated = cookie_authorized(request)
+        authenticated = account is not None and cookie_authorized(request)
         response.headers["Cache-Control"] = "no-store"
         return {
             "activated": account is not None,
