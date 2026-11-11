@@ -1,5 +1,6 @@
 """Smoke-test PyInstaller executables without hardware or a public listener."""
 import argparse
+import json
 import os
 import socket
 import subprocess
@@ -90,8 +91,17 @@ def main():
     parser.add_argument("--agent", required=True)
     parser.add_argument("--hub", required=True)
     args = parser.parse_args()
-    check_cli(str(Path(args.agent).resolve()), "DeviceShare Agent")
+    agent_path = str(Path(args.agent).resolve())
+    check_cli(agent_path, "DeviceShare Agent")
     check_cli(str(Path(args.hub).resolve()), "DeviceShare Hub")
+    scan = subprocess.run([agent_path, "--list-devices"], capture_output=True, text=True,
+                          timeout=30, check=True)
+    devices = json.loads(scan.stdout)
+    if not isinstance(devices, list) or not any(
+        d.get("id") == "sim:printer" for d in devices if isinstance(d, dict)
+    ):
+        raise RuntimeError("Frozen agent did not return JSON device inventory")
+    print("Frozen agent read-only device inventory OK", flush=True)
     check_hub(str(Path(args.hub).resolve()))
 
 
