@@ -131,7 +131,8 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
         <div><label for="activationPassword">Password (12+ characters)</label><input type="password" id="activationPassword" minlength="12" autocomplete="new-password" required></div>
         <div><label for="activationConfirm">Confirm password</label><input type="password" id="activationConfirm" minlength="12" autocomplete="new-password" required></div>
         <div><label for="activationCode">One-time activation code</label><input id="activationCode" autocomplete="off" maxlength="128" required placeholder="Get this from DeviceShare.app"></div>
-        <p class="sub">On your Mac, open DeviceShare.app → Overview → Activate account. Alternatively, run <code>deviceshare-hub --issue-activation-code</code> on the host. Codes expire after 10 minutes.</p>
+        <p class="sub"><strong>On macOS:</strong> open DeviceShare.app → Overview → Activate administrator; the Mac app creates the account directly, without copying any code. This browser form is for manual setup: generate a code on the Hub host with <code>deviceshare-hub --issue-activation-code</code> and use the same database path as the running Hub. Codes last 10 minutes.</p>
+        <button class="secondary" id="checkActivation" type="button">I activated in the Mac app — refresh status</button>
         <button type="submit">Create account</button>
       </form>
     </div>
@@ -143,7 +144,7 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
         <div><label for="recoveryEmail">Account email</label><input id="recoveryEmail" type="email" autocomplete="username" required></div>
         <div><label for="recoveryCode">Host recovery code</label><input id="recoveryCode" required autocomplete="off"></div>
         <div><label for="recoveryPassword">New password (12+ characters)</label><input type="password" minlength="12" id="recoveryPassword" autocomplete="new-password" required></div>
-        <p class="sub">On the Hub computer, run <code>deviceshare-hub --issue-recovery-code</code>. The code is single-use and lasts 10 minutes.</p>
+        <p class="sub">On a Mac, use DeviceShare.app → Settings → Generate recovery code. For another host, run <code>deviceshare-hub --issue-recovery-code</code> with its <code>DEVICESHARE_DB</code> environment variable pointing to the active Hub database. The code is single-use and expires in 10 minutes.</p>
         <button type="submit">Reset password</button>
       </form>
       <button type="button" class="text-button" id="backToSignIn">Back to sign in</button>
@@ -522,6 +523,7 @@ el("recoveryForm").addEventListener("submit",event=>{event.preventDefault();guar
 el("changePasswordForm").addEventListener("submit",event=>{event.preventDefault();guarded(changePassword)()});
 el("forgotPassword").addEventListener("click",()=>{recoveryMode=true;showAuthGate()});
 el("backToSignIn").addEventListener("click",()=>{recoveryMode=false;showAuthGate()});
+el("checkActivation").addEventListener("click",guarded(restore));
 el("signOut").addEventListener("click",guarded(()=>logout(false)));
 el("signOutAll").addEventListener("click",guarded(()=>logout(true)));
 el("pairButton").addEventListener("click",guarded(pair));
