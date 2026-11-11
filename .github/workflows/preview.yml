@@ -1,0 +1,50 @@
+name: Portable preview builds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "deviceshare/**"
+      - "scripts/**"
+      - "config/**"
+      - "docs/INSTALL_AGENT.md"
+      - "pyproject.toml"
+      - ".github/workflows/preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  portable:
+    name: Bundle ${{ matrix.suffix }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            suffix: linux-x64
+          - os: windows-latest
+            suffix: windows-x64
+          - os: macos-15
+            suffix: macos-arm64
+          - os: macos-15-intel
+            suffix: macos-x64
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Build, launch-test, and package portable release
+        shell: bash
+        env:
+          RUNNER_OS: ${{ runner.os }}
+        run: bash scripts/build_portable.sh "${{ matrix.suffix }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: preview-${{ matrix.suffix }}
+          path: release-assets/*.zip
+          if-no-files-found: error
+          retention-days: 14
