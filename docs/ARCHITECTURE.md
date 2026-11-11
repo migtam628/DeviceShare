@@ -45,6 +45,6 @@ The alpha hub uses a single-process, single-worker WebSocket registry. Paired ag
 
 - **Alpha 0.1:** authenticated hub, local agent, printer and serial allowlists, discovery, simulator, CI.
 - **Alpha 0.2 (in progress):** web management dashboard, persistent hashed per-agent credential registry, token rotation/revocation, agent inventory refresh and test coverage; remaining: automatic OS services, scoped permissions and smoother onboarding.
-- **Alpha 0.3:** secure USB-HID and USB bulk plugins, approval and permission model, safe sandboxed protocols.
+- **Alpha 0.3 (in progress):** allowlisted read-only USB-HID input-report plugin, portable per-user service installers and preview packaging; remaining: protocol-specific security controls, bulk/control transfer plugins and device-level authorization.
 - **Beta:** signed desktop installers, recovery after crashes, end-to-end acknowledgements, device protocol SDK and logging.
 - **1.0:** audited multi-tenant controls, observability, upgrade strategy, long-term stable protocol.
