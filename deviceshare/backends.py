@@ -47,7 +47,7 @@ def _raw_print(printer: str, data: bytes) -> dict[str, str]:
         raise RuntimeError(result.stderr.decode(errors="replace")[:400])
     return {"queue": "cups", "message": result.stdout.decode(errors="replace").strip()}
 
-def _document_print(printer: str, data: bytes, mime_type: str) -> dict[str, str]:
+def _document_print(printer: str, data: bytes, mime_type: str, options: dict) -> dict[str, str]:
     if platform.system() == "Windows":
         raise RuntimeError("Document printing on Windows is not yet supported; use print_raw")
     if mime_type not in ("application/pdf", "image/png"):
@@ -60,8 +60,17 @@ def _document_print(printer: str, data: bytes, mime_type: str) -> dict[str, str]
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             tmp.write(data)
             tmp_name = tmp.name
-        result = subprocess.run(["lp", "-d", printer, tmp_name],
-                                capture_output=True, timeout=30, check=False)
+        copies = options.get("copies", 1)
+        media = options.get("media", "Letter")
+        sides = options.get("sides", "one-sided")
+        if type(copies) is not int or not 1 <= copies <= 5:
+            raise ValueError("copies must be an integer between 1 and 5")
+        if media not in ("Letter", "A4") or sides not in ("one-sided", "two-sided-long-edge"):
+            raise ValueError("unsupported paper size or duplex setting")
+        command = ["lp", "-d", printer, "-n", str(copies),
+                   "-o", "media=" + media, "-o", "sides=" + sides,
+                   "-t", "DeviceShare document", tmp_name]
+        result = subprocess.run(command, capture_output=True, timeout=30, check=False)
         if result.returncode:
             raise RuntimeError(result.stderr.decode(errors="replace")[:400])
         return {"queue": "cups", "message": result.stdout.decode(errors="replace").strip()}
@@ -95,7 +104,7 @@ def execute(job: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
             raise PermissionError("printer is not in local allowlist")
         if operation == "print_raw":
             return _raw_print(printer, data)
-        return _document_print(printer, data, options.get("mime_type", ""))
+        return _document_print(printer, data, options.get("mime_type", ""), options)
 
     if operation == "hid_read":
         if data:
