@@ -1,20 +1,20 @@
 # DeviceShare.app for macOS (v0.2.0-alpha.3)
 
 DeviceShare now has a **native SwiftUI management window** in
-\`/Applications/DeviceShare.app\`. This is an alpha; it has no Apple Developer
+`/Applications/DeviceShare.app`. This is an alpha; it has no Apple Developer
 ID signature or notarization. It does **not** include an elevated helper,
 USB drivers, blanket printer access or automatic start of its network services.
 
 ## Quick start — all on one Mac
 
 1. Use the matching Apple Silicon or Intel **PKG**, or open the **DMG**
-   and drag \`DeviceShare.app\` into Applications. On a Mac mini M1,
+   and drag `DeviceShare.app` into Applications. On a Mac mini M1,
    use **macos-arm64**.
 2. Launch **DeviceShare** from Applications.
 3. In **First-run setup**, select **Start Local Hub**. The app generates a
    cryptographically random admin API key and saves it privately.
    The hub listens **only on 127.0.0.1:8765**.
-4. Keep \`station-01\` or choose a different unique station name.
+4. Keep `station-01` or choose a different unique station name.
    Select **Save Station Settings**.
 5. Choose **Pair / Rotate Credential**. The GUI stores the station token
    in a private local file; it never displays the token in logs or
@@ -55,7 +55,7 @@ not be bypassed.
 
 ## File locations
 
-\`\`\`text
+```text
 /Applications/DeviceShare.app
   Contents/MacOS/DeviceShare        # native GUI
   Contents/MacOS/deviceshare-agent  # bundled headless agent
@@ -71,7 +71,7 @@ not be bypassed.
 ~/Library/LaunchAgents/
   com.mttechservices.deviceshare.agent.plist
   com.mttechservices.deviceshare.hub.plist
-\`\`\`
+```
 
 The per-user LaunchAgent plists are created **only** when you click
 Start/Restart for a specific service. Pairing, enabling a device,
@@ -79,30 +79,30 @@ and starting a service are separate choices.
 
 PKG installations preserve legacy CLI commands:
 
-\`\`\`bash
+```bash
 /usr/local/bin/deviceshare-agent --version
 /usr/local/bin/deviceshare-hub --version
-\`\`\`
+```
 
 A drag-to-Applications DMG installation does not create CLI links;
 the bundled agent and hub are still available from the app itself.
 
 ## Diagnostics and troubleshooting
 
-\`\`\`bash
+```bash
 launchctl print "gui/$(id -u)/com.mttechservices.deviceshare.agent"
 launchctl print "gui/$(id -u)/com.mttechservices.deviceshare.hub"
 
 ls -la "$HOME/Library/Application Support/DeviceShare/logs/"
 ls -lh /Applications/DeviceShare.app/Contents/MacOS/
-\`\`\`
+```
 
 A disconnected station can mean the hub is down, station ID or token
 is incorrect, the network is unavailable, or a device's OS permissions
 block its use. Restart the agent after changing approval settings.
 
 If you previously activated the old portable setup's LaunchAgent
-\`com.deviceshare.agent\`, stop it before using the GUI-managed one to
+`com.deviceshare.agent`, stop it before using the GUI-managed one to
 avoid duplicate connections for the same station ID.
 
 ## Limitations
