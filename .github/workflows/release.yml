@@ -12,12 +12,13 @@ permissions:
   contents: read
 
 env:
-  # Initial source push publishes the very first prerelease; later tags are explicit.
-  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2.0-alpha.1' }}
+  # Branch push produces the first fully packaged native alpha; version tags
+  # are still supported for subsequent releases.
+  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2.0-alpha.2' }}
 
 jobs:
   test:
-    name: Verify source, version and unit tests
+    name: Validate version and unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -31,7 +32,7 @@ jobs:
   build:
     needs: test
     name: Package ${{ matrix.suffix }}
-    timeout-minutes: 35
+    timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
@@ -50,15 +51,33 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Build, smoke-test, package
+      - name: Build portable binaries, runtime smoke-test and ZIP
         shell: bash
         env:
           RUNNER_OS: ${{ runner.os }}
         run: bash scripts/build_portable.sh "${{ matrix.suffix }}"
+      - name: Create and validate native Debian package
+        if: runner.os == 'Linux'
+        shell: bash
+        run: bash scripts/build_native_linux.sh
+      - name: Create and validate Windows MSI and EXE installers
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: .\scripts\build_native_windows.ps1
+      - name: Create and validate Apple PKG and DMG installers
+        if: runner.os == 'macOS'
+        shell: bash
+        run: bash scripts/build_native_macos.sh "${{ matrix.suffix }}"
       - uses: actions/upload-artifact@v4
         with:
           name: bundle-${{ matrix.suffix }}
-          path: release-assets/*.zip
+          path: |
+            release-assets/*.zip
+            release-assets/*.msi
+            release-assets/*.exe
+            release-assets/*.pkg
+            release-assets/*.dmg
+            release-assets/*.deb
           if-no-files-found: error
 
   publish:
@@ -72,10 +91,26 @@ jobs:
           pattern: bundle-*
           path: release-assets
           merge-multiple: true
-      - name: Create SHA-256 checksums
+      - name: Validate release asset manifest and create SHA-256 checksums
         shell: bash
-        run: cd release-assets && sha256sum *.zip > SHA256SUMS.txt
-      - name: Publish verified alpha assets
+        run: |
+          cd release-assets
+          for package in \
+            DeviceShare-linux-x64.zip \
+            DeviceShare-windows-x64.zip \
+            DeviceShare-macos-arm64.zip \
+            DeviceShare-macos-x64.zip \
+            DeviceShare-windows-x64.msi \
+            DeviceShare-Setup-windows-x64.exe \
+            DeviceShare-macos-arm64.pkg \
+            DeviceShare-macos-arm64.dmg \
+            DeviceShare-macos-x64.pkg \
+            DeviceShare-macos-x64.dmg \
+            DeviceShare_0.2.0~alpha2_amd64.deb; do
+            test -s "$package" || { echo "Missing release asset $package"; exit 1; }
+          done
+          sha256sum DeviceShare* > SHA256SUMS.txt
+      - name: Publish verified native alpha release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -88,5 +123,5 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "DeviceShare ${RELEASE_TAG}" \
-            --notes "First portable DeviceShare alpha. Includes agent and hub binaries for four platforms, explicit per-device HID input approval, and startup scripts. Not signed/notarized or approved for public multi-tenant deployment. See INSTALL_AGENT.md in each ZIP." \
+            --notes "DeviceShare native installer alpha: Windows WiX MSI and Inno Setup EXE, macOS PKG and DMG for Apple Silicon and Intel, Debian/Ubuntu AMD64 DEB, and portable ZIPs. Packages are not code-signed/notarized. Installation does not automatically start a service or authorize peripherals. Check SHA256SUMS.txt and docs/INSTALL_NATIVE.md. Real-device validation remains required." \
             --prerelease
