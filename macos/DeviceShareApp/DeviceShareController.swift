@@ -9,6 +9,7 @@ struct LocalPeripheral: Codable, Identifiable {
     let id: String
     let kind: String
     let label: String
+    let state: String?
 
     var canApprove: Bool {
         id.hasPrefix("printer:") || id.hasPrefix("serial:") || id.hasPrefix("hid:")
@@ -30,6 +31,15 @@ final class DeviceShareController: ObservableObject {
     @Published var localHubState = "Stopped"
     @Published var notice = "Choose a local hub or enter the URL of a trusted remote hub."
     @Published var isBusy = false
+    @Published var selectedPrinterID = ""
+    @Published var customPrintTitle = "My custom print"
+    @Published var customPrintText = ""
+    @Published var copies = 1
+    @Published var paperSize = "Letter"
+    @Published var printDuplex = false
+    @Published var printInProgress = false
+    @Published var printStatus = "Select an approved printer to begin."
+    @Published var lastPrintJobID = ""
 
     private let agentLabel = "com.mttechservices.deviceshare.agent"
     private let hubLabel = "com.mttechservices.deviceshare.hub"
@@ -59,6 +69,7 @@ final class DeviceShareController: ObservableObject {
     var applicationSupportLocation: String { supportURL.path }
 
     init() {
+        selectedPrinterID = UserDefaults.standard.string(forKey: "deviceshare_selected_printer") ?? ""
         if let config = try? readConfig() {
             if let value = config["hub_url"] as? String { hubURL = value }
             if let value = config["agent_id"] as? String { stationID = value }
@@ -67,7 +78,7 @@ final class DeviceShareController: ObservableObject {
             let hidNames = config["allowed_hid_devices"] as? [String] ?? []
             approvals = Set(printerNames.map { "printer:" + $0 }
                 + serialNames.map { "serial:" + $0 } + hidNames)
-            peripherals = approvals.sorted().map { LocalPeripheral(id: $0, kind: "saved", label: $0 + " (previously approved)") }
+            peripherals = approvals.sorted().map { LocalPeripheral(id: $0, kind: "saved", label: $0 + " (previously approved)", state: nil) }
         }
     }
 
@@ -325,7 +336,7 @@ final class DeviceShareController: ObservableObject {
                     result.append(device)
                 }
                 for id in approvals.sorted() where !seen.contains(id) {
-                    result.append(LocalPeripheral(id: id, kind: "saved", label: id + " (offline / approved)"))
+                    result.append(LocalPeripheral(id: id, kind: "saved", label: id + " (offline / approved)", state: nil))
                 }
                 peripherals = result.sorted { $0.kind + $0.label < $1.kind + $1.label }
                 notice = "Discovered \(live.count) peripheral entries. Only checked devices receive local approval."
@@ -333,6 +344,156 @@ final class DeviceShareController: ObservableObject {
                 notice = "Device scan failed: " + error.localizedDescription
             }
         }
+    }
+
+    var availablePrinters: [LocalPeripheral] {
+        peripherals.filter { $0.id.hasPrefix("printer:") }
+    }
+
+    var selectedPrinter: LocalPeripheral? {
+        availablePrinters.first(where: { $0.id == selectedPrinterID })
+    }
+
+    var printerReady: Bool {
+        guard let printer = selectedPrinter else { return false }
+        return printer.state != "disabled" && approvals.contains(printer.id) && hasToken
+    }
+
+    func choosePrinter(_ id: String) {
+        selectedPrinterID = id
+        UserDefaults.standard.set(id, forKey: "deviceshare_selected_printer")
+    }
+
+    private func submitPrintRequest(path: String, body: [String: Any]) async throws -> String {
+        let base = try validatedHubURL()
+        guard base.scheme == "https" || ["localhost", "127.0.0.1", "::1"].contains(base.host?.lowercased() ?? "") else {
+            throw NSError(domain: "DeviceShare", code: 170,
+                          userInfo: [NSLocalizedDescriptionKey: "Remote print jobs require HTTPS."])
+        }
+        let key = localHubKey(for: base)
+                  ?? rememberedKey(for: base)
+                  ?? adminAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard key.count >= 16 else {
+            throw NSError(domain: "DeviceShare", code: 171,
+                          userInfo: [NSLocalizedDescriptionKey: "Hub administrator key unavailable. Start the local Hub, or save the remote key under Settings."])
+        }
+        var request = URLRequest(url: base.appendingPathComponent(path))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 20
+        request.setValue(key, forHTTPHeaderField: "X-API-Key")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard status == 202 else {
+            var detail = "Hub rejected print job (HTTP \(status))."
+            if let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let message = object["detail"] as? String { detail = message }
+            throw NSError(domain: "DeviceShare", code: status,
+                          userInfo: [NSLocalizedDescriptionKey: detail])
+        }
+        guard let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let jobID = object["id"] as? String else {
+            throw NSError(domain: "DeviceShare", code: 172,
+                          userInfo: [NSLocalizedDescriptionKey: "Hub returned an invalid print response."])
+        }
+        return jobID
+    }
+
+    private func printOptions() -> [String: Any] {
+        ["copies": copies, "media": paperSize,
+         "sides": printDuplex ? "two-sided-long-edge" : "one-sided"]
+    }
+
+    func submitTestPrint() {
+        performPrint(test: true)
+    }
+
+    func submitCustomText() {
+        performPrint(test: false)
+    }
+
+    private func performPrint(test: Bool) {
+        guard !printInProgress else { return }
+        guard let printer = selectedPrinter, printerReady else {
+            printStatus = "Select and approve an enabled printer, then pair your station."
+            return
+        }
+        if !test && customPrintText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            printStatus = "Enter text before submitting a custom print."
+            return
+        }
+        let id = printer.id
+        var body = printOptions()
+        body["agent_id"] = stationID
+        body["device_id"] = id
+        if !test {
+            body["title"] = customPrintTitle
+            body["text"] = customPrintText
+        }
+        printInProgress = true
+        printStatus = "Submitting to " + printer.label + "…"
+        Task {
+            defer { printInProgress = false }
+            do {
+                let job = try await submitPrintRequest(path: test ? "v1/print/test" : "v1/print/text",
+                                                        body: body)
+                lastPrintJobID = job
+                printStatus = "Job " + String(job.prefix(12)) + " submitted to " + printer.label +
+                    ". Confirm spooler status and physical paper output in the Hub dashboard."
+                notice = printStatus
+            } catch {
+                printStatus = error.localizedDescription
+                notice = "Print request failed: " + error.localizedDescription
+            }
+        }
+    }
+
+    func chooseDocumentAndPrint() {
+        guard !printInProgress else { return }
+        guard let printer = selectedPrinter, printerReady else {
+            printStatus = "Select and approve a connected printer before choosing a document."
+            return
+        }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.pdf, .png]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        guard panel.runModal() == .OK, let fileURL = panel.url else { return }
+        let printerID = printer.id
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: fileURL.path)
+            if (attributes[.size] as? NSNumber)?.intValue ?? 0 > 1024 * 1024 {
+                throw NSError(domain: "DeviceShare", code: 173,
+                              userInfo: [NSLocalizedDescriptionKey: "PDF/PNG file must not exceed 1 MiB."])
+            }
+            let data = try Data(contentsOf: fileURL)
+            let pdf = data.starts(with: Data("%PDF-".utf8))
+            let png = data.starts(with: Data([137, 80, 78, 71, 13, 10, 26, 10]))
+            guard pdf || png else {
+                throw NSError(domain: "DeviceShare", code: 174,
+                              userInfo: [NSLocalizedDescriptionKey: "Only valid PDF or PNG documents are supported."])
+            }
+            var body: [String: Any] = [
+                "agent_id": stationID,
+                "device_id": printerID,
+                "operation": "print_document",
+                "data_base64": data.base64EncodedString(),
+                "options": printOptions().merging(
+                    ["mime_type": pdf ? "application/pdf" : "image/png"],
+                    uniquingKeysWith: { _, new in new })
+            ]
+            printInProgress = true
+            printStatus = "Submitting " + fileURL.lastPathComponent + "…"
+            Task {
+                defer { printInProgress = false }
+                do {
+                    let job = try await submitPrintRequest(path: "v1/jobs", body: body)
+                    lastPrintJobID = job
+                    printStatus = "Document queued as " + String(job.prefix(12)) + ". Verify physical output."
+                } catch { printStatus = error.localizedDescription }
+            }
+        } catch { printStatus = error.localizedDescription }
     }
 
     func isApproved(_ device: LocalPeripheral) -> Bool { approvals.contains(device.id) }
