@@ -40,7 +40,7 @@ install -m 0755 "$hub" "$app/Contents/MacOS/deviceshare-hub"
 codesign --force --deep --sign - "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")" = "DeviceShare"
-test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")" = "4"
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")" = "5"
 file "$app/Contents/MacOS/DeviceShare"
 "$app/Contents/MacOS/deviceshare-agent" --version
 "$app/Contents/MacOS/deviceshare-hub" --version
@@ -58,7 +58,7 @@ pkg="release-assets/DeviceShare-$suffix.pkg"
 dmg="release-assets/DeviceShare-$suffix.dmg"
 pkgbuild --root "$stage" \
   --identifier "com.mttechservices.deviceshare.cli" \
-  --version "0.2.4" \
+  --version "0.2.5" \
   --install-location "/" "$pkg"
 
 pkgutil --expand "$pkg" "$workspace/expanded"
