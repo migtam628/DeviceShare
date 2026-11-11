@@ -97,9 +97,14 @@ async def run(config: dict):
 def main():
     parser = argparse.ArgumentParser(description="DeviceShare local agent")
     parser.add_argument("--version", action="version", version="DeviceShare Agent 0.2.0a2")
+    parser.add_argument("--list-devices", action="store_true",
+                        help="Print read-only local device inventory as JSON and exit")
     parser.add_argument("--config", default=os.environ.get(
         "DEVICESHARE_AGENT_CONFIG", "./config/agent.json"))
     args = parser.parse_args()
+    if args.list_devices:
+        print(json.dumps(discover(), indent=2))
+        return
     asyncio.run(run(load_config(args.config)))
 
 if __name__ == "__main__":
