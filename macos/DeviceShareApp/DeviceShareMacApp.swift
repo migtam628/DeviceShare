@@ -148,9 +148,35 @@ struct DeviceShareHome: View {
         }
     }
 
+    private func setupStatus(_ title: String, done: Bool) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: done ? "checkmark.circle.fill" : "circle.dotted")
+                .foregroundStyle(done ? Color.green : Color.secondary)
+            Text(title).font(.caption.weight(.semibold))
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 8)
+        .background(Color.accentColor.opacity(done ? 0.10 : 0.03), in: Capsule())
+    }
+
     private var setupPanel: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Activate DeviceShare")
+                        .font(.title2.bold())
+                    Text("Complete these steps once. Your existing station credentials and printing history are preserved.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        setupStatus("Hub", done: controller.hubHealth == "Hub responding")
+                        setupStatus("Account", done: controller.adminActivated)
+                        setupStatus("Station", done: controller.hasToken)
+                        setupStatus("Printer", done: controller.selectedPrinter != nil)
+                    }
+                }
+                .padding(15)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
                 GroupBox {
                     VStack(alignment: .leading, spacing: 12) {
                         Text("1. Select the hub")
@@ -174,7 +200,55 @@ struct DeviceShareHome: View {
 
                 GroupBox {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("2. Configure this station")
+                        HStack {
+                            Text("2. Create your administrator account")
+                                .font(.headline)
+                            Spacer()
+                            if controller.adminActivated {
+                                Label("Activated", systemImage: "checkmark.circle.fill")
+                                    .foregroundStyle(Color.green)
+                                    .font(.caption)
+                            }
+                        }
+                        Text("Your email and password replace the browser API-key login. DeviceShare stores only a memory-hard password hash in the Hub database.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        if controller.adminActivated {
+                            HStack {
+                                Label("Administrator account is ready", systemImage: "checkmark.shield.fill")
+                                    .foregroundStyle(Color.green)
+                                Spacer()
+                                Button("Open sign-in") { controller.openDashboard() }
+                            }
+                        } else {
+                            TextField("Email address", text: $controller.adminSetupEmail)
+                                .textFieldStyle(.roundedBorder)
+                                .textContentType(.emailAddress)
+                            SecureField("Create password (12+ characters)", text: $controller.adminSetupPassword)
+                                .textFieldStyle(.roundedBorder)
+                                .textContentType(.newPassword)
+                            SecureField("Confirm password", text: $controller.adminSetupConfirmation)
+                                .textFieldStyle(.roundedBorder)
+                                .textContentType(.newPassword)
+                            Text(controller.activationMessage)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            HStack {
+                                Button("Recheck status") { controller.refreshActivationStatus() }
+                                Spacer()
+                                Button("Activate administrator") { controller.activateOwnerAccount() }
+                                    .buttonStyle(.borderedProminent)
+                                    .disabled(controller.activationBusy ||
+                                              controller.adminSetupEmail.isEmpty ||
+                                              controller.adminSetupPassword.count < 12 ||
+                                              controller.adminSetupPassword != controller.adminSetupConfirmation)
+                            }
+                        }
+                    }
+                }
+
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("3. Configure this station")
                             .font(.headline)
                         LabeledContent("Station ID") {
                             TextField("station-01", text: $controller.stationID)
@@ -192,9 +266,9 @@ struct DeviceShareHome: View {
 
                 GroupBox {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("3. Pair the station")
+                        Text("4. Pair the station")
                             .font(.headline)
-                        Text("A locally started hub can pair using its private key file. For a remote hub, enter the administrator key once. This GUI never saves the administrator key.")
+                        Text("This computer uses its private Host key to pair the station automatically. Only remote agent provisioning needs an integration key; your browser now signs in with email and password.")
                             .font(.subheadline).foregroundStyle(.secondary)
                         LabeledContent("Hub administrator key") {
                             SecureField("Required for a remote hub", text: $controller.adminAPIKey)
@@ -236,6 +310,7 @@ struct DeviceShareHome: View {
             }
             .padding(12)
         }
+        .onAppear { controller.refreshActivationStatus() }
     }
 
 
@@ -589,6 +664,27 @@ struct DeviceShareHome: View {
                 }
                 GroupBox {
                     VStack(alignment: .leading, spacing: 12) {
+                        Text("Account recovery").font(.headline)
+                        Text("If you forget your dashboard password, generate a 10-minute recovery code on this Mac and use it on the browser's Forgot Password screen. The code is never sent by email.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        HStack {
+                            Button("Generate recovery code") { controller.issueRecoveryCode() }
+                                .disabled(controller.activationBusy || !controller.adminActivated)
+                            Spacer()
+                            Button("Open browser sign-in") { controller.openDashboard() }
+                        }
+                        if !controller.recoveryCode.isEmpty {
+                            Text(controller.recoveryCode)
+                                .font(.system(.body, design: .monospaced))
+                                .textSelection(.enabled)
+                            Text("Copy this code privately. It expires in 10 minutes and can be used only once.")
+                                .font(.caption).foregroundStyle(.orange)
+                            Button("Hide code") { controller.recoveryCode = "" }
+                        }
+                    }
+                }
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
                         Text("Station & local data").font(.headline)
                         LabeledContent("Station ID") {
                             Text(controller.stationID).font(.body.monospaced()).textSelection(.enabled)
@@ -609,7 +705,7 @@ struct DeviceShareHome: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("About & security").font(.headline)
                         Text("DeviceShare v0.2.0-alpha.4")
-                        Text("The web dashboard stores no raw administrator key. Its optional remembered browser login is an HttpOnly, SameSite=Strict, revocable session cookie. Keys for remote hubs can be saved in macOS Keychain on this computer.")
+                        Text("The web dashboard uses email and password with remembered HttpOnly browser sessions. The local app retains a separate private machine credential for agent provisioning. Optional remote integration keys are kept in macOS Keychain.")
                             .font(.caption).foregroundStyle(.secondary)
                         Text("Unsigned developer alpha. Limit the Hub to loopback or HTTPS on a trusted network. A print job accepted by the spooler does not prove physical paper output.")
                             .font(.caption).foregroundStyle(.secondary)
