@@ -1,5 +1,6 @@
 """Authenticated FastAPI hub and outbound-agent WebSocket relay."""
 import asyncio
+from importlib.resources import files
 import json
 import os
 import re
@@ -9,6 +10,7 @@ from typing import Any
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Security, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 from fastapi.security import APIKeyHeader
 
 from .models import JobCreate
@@ -33,11 +35,15 @@ def create_app(
     agent_token: str | None = None,
 ) -> FastAPI:
     api_key = api_key or os.environ.get("DEVICESHARE_API_KEY")
-    agent_token = agent_token or os.environ.get("DEVICESHARE_AGENT_TOKEN")
-    if not api_key or not agent_token or len(api_key) < 16 or len(agent_token) < 16:
-        raise RuntimeError("Set distinct DEVICESHARE_API_KEY and DEVICESHARE_AGENT_TOKEN (16+ characters each)")
-    if secrets.compare_digest(api_key, agent_token):
-        raise RuntimeError("API key and agent token must be different")
+    # An optional legacy shared token supports upgrading old agents.
+    # Paired credentials always take precedence, including when revoked.
+    if agent_token is None:
+        agent_token = (os.environ.get("DEVICESHARE_LEGACY_AGENT_TOKEN")
+                       or os.environ.get("DEVICESHARE_AGENT_TOKEN"))
+    if not api_key or len(api_key) < 16:
+        raise RuntimeError("Set DEVICESHARE_API_KEY to a random secret (16+ characters)")
+    if agent_token and (len(agent_token) < 16 or secrets.compare_digest(api_key, agent_token)):
+        raise RuntimeError("Legacy agent token must be distinct from the API key (16+ characters)")
     store = Store(store_path or os.environ.get("DEVICESHARE_DB", "./data/deviceshare.db"))
     app = FastAPI(title="DeviceShare", version="0.1.0a1",
                   description="DeviceShare API. Printing accepted by an OS queue does not prove paper output.")
@@ -77,16 +83,66 @@ def create_app(
                         store.uncertain(agent_id)
                         return
 
+    @app.get("/dashboard", response_class=HTMLResponse, include_in_schema=False)
+    async def dashboard():
+        return HTMLResponse(
+            content=files("deviceshare").joinpath("dashboard.html").read_text(encoding="utf-8"),
+            headers={
+                "Cache-Control": "no-store",
+                "Referrer-Policy": "no-referrer",
+                "X-Frame-Options": "DENY",
+                "Content-Security-Policy": (
+                    "default-src 'none'; script-src 'unsafe-inline'; "
+                    "style-src 'unsafe-inline'; connect-src 'self'; "
+                    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+                ),
+            },
+        )
+
     @app.get("/healthz")
     async def healthz():
         return {"status": "ok", "service": "deviceshare"}
 
     @app.get("/v1/agents", dependencies=[Depends(require_api_key)])
     async def agents():
+        paired = {row["agent_id"]: row for row in store.list_agent_credentials()}
+        identifiers = sorted(set(paired) | set(clients))
         return [
-            {"agent_id": agent_id, "online": True, "devices": conn.devices}
-            for agent_id, conn in sorted(clients.items())
+            {
+                "agent_id": agent_id,
+                "online": agent_id in clients,
+                "devices": clients[agent_id].devices if agent_id in clients else [],
+                "credential_status": (
+                    "revoked" if paired[agent_id]["revoked_at"] else "paired"
+                ) if agent_id in paired else "legacy / unpaired",
+            }
+            for agent_id in identifiers
         ]
+
+    @app.post("/v1/agents/{agent_id}/credential", dependencies=[Depends(require_api_key)])
+    async def issue_credential(agent_id: str):
+        if not re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", agent_id):
+            raise HTTPException(status_code=422, detail="Invalid agent ID")
+        token = store.issue_agent_credential(agent_id)
+        conn = clients.get(agent_id)
+        if conn is not None:
+            # Rotation invalidates any existing connection immediately.
+            store.uncertain(agent_id)
+            await conn.ws.close(code=1012)
+        return {"agent_id": agent_id, "token": token,
+                "notice": "Store token on agent. This is shown once."}
+
+    @app.delete("/v1/agents/{agent_id}/credential", dependencies=[Depends(require_api_key)])
+    async def revoke_credential(agent_id: str):
+        if not re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", agent_id):
+            raise HTTPException(status_code=422, detail="Invalid agent ID")
+        if not store.revoke_agent_credential(agent_id):
+            raise HTTPException(status_code=404, detail="No active credential found")
+        conn = clients.get(agent_id)
+        if conn is not None:
+            store.uncertain(agent_id)
+            await conn.ws.close(code=1008)
+        return {"agent_id": agent_id, "revoked": True}
 
     @app.get("/v1/jobs", dependencies=[Depends(require_api_key)])
     async def jobs(limit: int = 50):
@@ -106,8 +162,13 @@ def create_app(
     @app.websocket("/v1/agents/{agent_id}/ws")
     async def agent_socket(ws: WebSocket, agent_id: str):
         key = ws.headers.get("x-agent-token", "")
-        if (not re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", agent_id)
-                or not secrets.compare_digest(key, agent_token)):
+        valid_agent_id = re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", agent_id)
+        paired = store.agent_credential_exists(agent_id) if valid_agent_id else False
+        valid_credential = bool(valid_agent_id and (
+            store.verify_agent_credential(agent_id, key) if paired
+            else bool(agent_token and secrets.compare_digest(key, agent_token))
+        ))
+        if not valid_credential:
             await ws.close(code=1008)
             return
         await ws.accept()
