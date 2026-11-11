@@ -2,11 +2,18 @@ name: Build GitHub Release
 
 on:
   push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release.yml"
     tags:
       - "v*-alpha.*"
 
 permissions:
   contents: read
+
+env:
+  # Initial source push publishes the very first prerelease; later tags are explicit.
+  RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2.0-alpha.1' }}
 
 jobs:
   test:
@@ -17,7 +24,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: python scripts/verify_release_version.py "${{ github.ref_name }}"
+      - run: python scripts/verify_release_version.py "${{ env.RELEASE_TAG }}"
       - run: python -m pip install ".[dev]"
       - run: python -m pytest -q
 
@@ -73,7 +80,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release create "${GITHUB_REF_NAME}" release-assets/* \
+          if gh release view "${RELEASE_TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            echo "Release ${RELEASE_TAG} already exists; no changes made."
+            exit 0
+          fi
+          gh release create "${RELEASE_TAG}" release-assets/* \
             --repo "${GITHUB_REPOSITORY}" \
-            --title "DeviceShare ${GITHUB_REF_NAME}" \
-            --generate-notes --prerelease
+            --target "${GITHUB_SHA}" \
+            --title "DeviceShare ${RELEASE_TAG}" \
+            --notes "First portable DeviceShare alpha. Includes agent and hub binaries for four platforms, explicit per-device HID input approval, and startup scripts. Not signed/notarized or approved for public multi-tenant deployment. See INSTALL_AGENT.md in each ZIP." \
+            --prerelease
