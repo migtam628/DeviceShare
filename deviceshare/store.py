@@ -1,5 +1,8 @@
 """SQLite job ledger; no automatic retry after a job is sent to hardware."""
+import hashlib
+import hmac
 import json
+import secrets
 import sqlite3
 from contextlib import contextmanager
 import uuid
@@ -31,6 +34,12 @@ class Store:
             );
             CREATE INDEX IF NOT EXISTS idx_jobs_agent_status
                 ON jobs(agent_id, status, created_at);
+            CREATE TABLE IF NOT EXISTS agent_credentials (
+                agent_id TEXT PRIMARY KEY,
+                token_sha256 TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                revoked_at TEXT
+            );
             """)
             # Crash recovery: sent jobs may have reached hardware. Never replay.
             db.execute("UPDATE jobs SET status='unknown', updated_at=? WHERE status='sent'", (now(),))
@@ -126,3 +135,54 @@ class Store:
                 "UPDATE jobs SET status='unknown',updated_at=? "
                 "WHERE agent_id=? AND status='sent'", (now(), agent_id)
             )
+
+    def issue_agent_credential(self, agent_id: str) -> str:
+        """Generate a high-entropy token, storing only its SHA-256 digest."""
+        token = secrets.token_urlsafe(32)
+        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        with self.connect() as db:
+            db.execute(
+                "INSERT OR REPLACE INTO agent_credentials "
+                "(agent_id, token_sha256, created_at, revoked_at) VALUES (?, ?, ?, NULL)",
+                (agent_id, digest, now()),
+            )
+        return token
+
+    def verify_agent_credential(self, agent_id: str, token: str) -> bool:
+        if not token or len(token) > 512:
+            return False
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT token_sha256, revoked_at FROM agent_credentials WHERE agent_id=?",
+                (agent_id,),
+            ).fetchone()
+        return bool(
+            row and row["revoked_at"] is None
+            and hmac.compare_digest(
+                row["token_sha256"],
+                hashlib.sha256(token.encode("utf-8")).hexdigest(),
+            )
+        )
+
+    def agent_credential_exists(self, agent_id: str) -> bool:
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT 1 FROM agent_credentials WHERE agent_id=?", (agent_id,)
+            ).fetchone()
+        return row is not None
+
+    def list_agent_credentials(self) -> list[dict]:
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT agent_id, created_at, revoked_at FROM agent_credentials "
+                "ORDER BY agent_id"
+            ).fetchall()
+        return [dict(row) for row in rows]
+
+    def revoke_agent_credential(self, agent_id: str) -> bool:
+        with self.connect() as db:
+            return db.execute(
+                "UPDATE agent_credentials SET revoked_at=? "
+                "WHERE agent_id=? AND revoked_at IS NULL",
+                (now(), agent_id),
+            ).rowcount == 1
