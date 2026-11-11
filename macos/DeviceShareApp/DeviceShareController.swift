@@ -31,6 +31,13 @@ final class DeviceShareController: ObservableObject {
     @Published var agentState = "Stopped"
     @Published var localHubState = "Stopped"
     @Published var notice = "Choose a local hub or enter the URL of a trusted remote hub."
+    @Published var adminActivated = false
+    @Published var adminSetupEmail = ""
+    @Published var adminSetupPassword = ""
+    @Published var adminSetupConfirmation = ""
+    @Published var activationBusy = false
+    @Published var activationMessage = "Create an administrator account to sign in with email and password."
+    @Published var recoveryCode = ""
     @Published var isBusy = false
     @Published var selectedPrinterID = ""
     @Published var customPrintTitle = "My custom print"
@@ -248,6 +255,121 @@ final class DeviceShareController: ObservableObject {
             savedAdminKeyAvailable = false
             notice = "Saved remote administrator key removed from macOS Keychain."
         } catch { notice = error.localizedDescription }
+    }
+
+    func refreshActivationStatus() {
+        Task {
+            do {
+                let hub = try validatedHubURL()
+                var request = URLRequest(url: hub.appendingPathComponent("v1/auth/status"))
+                request.timeoutInterval = 8
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200,
+                      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    adminActivated = false
+                    activationMessage = "Could not read Hub activation status."
+                    return
+                }
+                adminActivated = json["activated"] as? Bool == true
+                activationMessage = adminActivated
+                    ? "Account activated. Sign into the browser with your email and password."
+                    : "Create your owner account here. DeviceShare will keep the private Host API key out of the browser."
+            } catch {
+                adminActivated = false
+                activationMessage = "Start the local Hub before activating your account."
+            }
+        }
+    }
+
+    func activateOwnerAccount() {
+        guard !activationBusy else { return }
+        let email = adminSetupEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let password = adminSetupPassword
+        guard password.count >= 12 && password == adminSetupConfirmation else {
+            activationMessage = "Use at least 12 characters and enter matching passwords."
+            return
+        }
+        activationBusy = true
+        activationMessage = "Securing your administrator account…"
+        Task {
+            defer {
+                adminSetupPassword = ""
+                adminSetupConfirmation = ""
+                activationBusy = false
+            }
+            do {
+                let hub = try validatedHubURL()
+                guard let hostKey = localHubKey(for: hub), hostKey.count >= 16 else {
+                    throw NSError(domain: "DeviceShare", code: 180,
+                        userInfo: [NSLocalizedDescriptionKey: "Activation from the Mac app requires its local Hub. For remote Hubs, generate a setup code on that host."])
+                }
+                var codeRequest = URLRequest(url: hub.appendingPathComponent("v1/auth/code"))
+                codeRequest.httpMethod = "POST"
+                codeRequest.timeoutInterval = 10
+                codeRequest.setValue(hostKey, forHTTPHeaderField: "X-API-Key")
+                codeRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                codeRequest.httpBody = try JSONSerialization.data(withJSONObject: ["purpose": "activate"])
+                let (codeData, codeResponse) = try await URLSession.shared.data(for: codeRequest)
+                guard (codeResponse as? HTTPURLResponse)?.statusCode == 200,
+                      let payload = try JSONSerialization.jsonObject(with: codeData) as? [String: Any],
+                      let code = payload["code"] as? String else {
+                    throw NSError(domain: "DeviceShare", code: 181,
+                        userInfo: [NSLocalizedDescriptionKey: "Could not generate activation code. Account may already be activated."])
+                }
+                var activateRequest = URLRequest(url: hub.appendingPathComponent("v1/auth/activate"))
+                activateRequest.httpMethod = "POST"
+                activateRequest.timeoutInterval = 15
+                activateRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                activateRequest.setValue("1", forHTTPHeaderField: "X-DeviceShare-CSRF")
+                activateRequest.httpBody = try JSONSerialization.data(withJSONObject: [
+                    "code": code, "email": email, "password": password, "remember": true
+                ] as [String: Any])
+                let (resultData, resultResponse) = try await URLSession.shared.data(for: activateRequest)
+                guard (resultResponse as? HTTPURLResponse)?.statusCode == 201 else {
+                    var reason = "Account setup failed. Check your email and password."
+                    if let errorBody = try? JSONSerialization.jsonObject(with: resultData) as? [String: Any],
+                       let detail = errorBody["detail"] as? String { reason = detail }
+                    throw NSError(domain: "DeviceShare", code: 182,
+                        userInfo: [NSLocalizedDescriptionKey: reason])
+                }
+                adminActivated = true
+                activationMessage = "Administrator created. Open the web dashboard and sign in with your email and password."
+                notice = activationMessage
+            } catch {
+                activationMessage = error.localizedDescription
+                notice = "Account setup: " + error.localizedDescription
+            }
+        }
+    }
+
+    func issueRecoveryCode() {
+        guard !activationBusy else { return }
+        activationBusy = true
+        recoveryCode = ""
+        Task {
+            defer { activationBusy = false }
+            do {
+                let hub = try validatedHubURL()
+                guard let hostKey = localHubKey(for: hub) else {
+                    throw NSError(domain: "DeviceShare", code: 183,
+                        userInfo: [NSLocalizedDescriptionKey: "Recovery codes must be requested on the local Hub host."])
+                }
+                var request = URLRequest(url: hub.appendingPathComponent("v1/auth/code"))
+                request.httpMethod = "POST"
+                request.setValue(hostKey, forHTTPHeaderField: "X-API-Key")
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = try JSONSerialization.data(withJSONObject: ["purpose": "reset"])
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200,
+                      let result = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let code = result["code"] as? String else {
+                    throw NSError(domain: "DeviceShare", code: 184,
+                        userInfo: [NSLocalizedDescriptionKey: "Could not create recovery code."])
+                }
+                recoveryCode = code
+                notice = "Recovery code generated. Valid for 10 minutes; use it only in your own browser."
+            } catch { notice = error.localizedDescription }
+        }
     }
 
     private func localHubKey(for url: URL) -> String? {
@@ -626,6 +748,7 @@ final class DeviceShareController: ObservableObject {
                 ])
             notice = "Local hub started on loopback. Pair your station to connect the agent."
             refreshServices()
+            refreshActivationStatus()
         } catch { notice = error.localizedDescription }
     }
 
