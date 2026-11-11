@@ -2,18 +2,26 @@
 
 **DeviceShare** is a self-hosted peripheral bridge for sending print jobs and communicating with locally attached hardware from websites, POS applications, inventory systems, and remote servers.
 
-**Project status: v0.2.0-alpha.4.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not connect to untrusted devices, commands, or the open internet.
+**Project status: v0.2.0-alpha.5.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not connect to untrusted devices, commands, or the open internet.
+
+## Activation and email/password sign-in (alpha.5)
+
+For first-time use on your Mac, open **DeviceShare.app → Overview** and start the local Hub. Under **Create your administrator account**, enter an email and a password of at least 12 characters, then activate it. The Mac app uses a short-lived setup code internally. The web Console now signs in with **email and password**; the raw Hub API key is no longer a browser login requirement. Your existing station tokens and print history remain intact.
+
+Use **Settings** to change the password, revoke remembered browser sessions, and recover access with a 10-minute host-issued code. Passwords are salted and hashed with scrypt; repeated sign-in attempts are throttled. The native Mac app continues using its separate private Host key for machine provisioning and can generate a recovery code locally.
+
+**[Full activation and recovery guide](docs/AUTH_SETUP.md)**
 
 ## Native installation packages
 
-**[Download DeviceShare v0.2.0-alpha.4](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.4)**
+**[Download DeviceShare v0.2.0-alpha.5](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.5)**
 
 | Platform | Native installer |
 | --- | --- |
-| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-Setup-windows-x64.exe) |
-| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-macos-arm64.pkg) |
-| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-macos-x64.pkg) |
-| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare_0.2.0.alpha4_amd64.deb) |
+| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-Setup-windows-x64.exe) |
+| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-macos-arm64.pkg) |
+| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-macos-x64.pkg) |
+| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare_0.2.0.alpha5_amd64.deb) |
 
 Read **[native installer setup](docs/INSTALL_NATIVE.md)** and compare downloads with the release's `SHA256SUMS.txt`. Installer files include both the Agent and Hub; they do not automatically authorize peripherals or install OS drivers. Portable ZIP builds remain available.
 
@@ -30,7 +38,7 @@ Launch it from Applications and follow these steps:
 
 User configuration, credentials, logs and database live under `~/Library/Application Support/DeviceShare/`. The app starts services **only when you explicitly request it**. See the [macOS walkthrough](docs/MAC_APP.md). The app is ad-hoc signed for platform integrity; it is not Apple Developer ID–signed or notarized.
 
-## Print Studio and separated console pages (alpha.4)
+## Print Studio and separated console pages (alpha.5)
 
 Open the local Hub at `http://127.0.0.1:8765/dashboard` and use the sidebar:
 
