@@ -13,20 +13,34 @@ def discover() -> list[dict[str, str]]:
             import win32print
             for info in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL):
                 name = str(info[2])
-                devices.append({"id": f"printer:{name}", "kind": "printer", "label": name})
+                devices.append({"id": f"printer:{name}", "kind": "printer", "label": name,
+                                "state": "unknown"})
         except ImportError:
             pass
         except Exception:
             pass
     elif shutil.which("lpstat"):
         try:
-            result = subprocess.run(["lpstat", "-a"], capture_output=True,
+            accepting = subprocess.run(["lpstat", "-a"], capture_output=True,
+                                       text=True, timeout=5, check=False)
+            states = subprocess.run(["lpstat", "-p"], capture_output=True,
                                     text=True, timeout=5, check=False)
-            if result.returncode == 0:
-                for line in result.stdout.splitlines():
+            queue_states = {}
+            if states.returncode == 0:
+                for line in states.stdout.splitlines():
+                    if line.startswith("printer "):
+                        parts = line.split()
+                        if len(parts) >= 3:
+                            queue_states[parts[1]] = ("disabled" if " disabled " in " " + line + " " else "enabled")
+            if accepting.returncode == 0:
+                for line in accepting.stdout.splitlines():
                     name = line.split(" ", 1)[0].strip()
                     if name:
-                        devices.append({"id": f"printer:{name}", "kind": "printer", "label": name})
+                        devices.append({
+                            "id": f"printer:{name}", "kind": "printer", "label": name,
+                            # Enabled is CUPS queue state, NOT proof of physical availability.
+                            "state": queue_states.get(name, "unknown"),
+                        })
         except (OSError, subprocess.TimeoutExpired):
             pass
 
