@@ -97,7 +97,7 @@ can remain after manual removal; do not delete other packages' files.
 Install:
 
 ```bash
-sudo apt install ./DeviceShare_0.2.0~alpha2_amd64.deb
+sudo apt install ./DeviceShare_0.2.0.alpha2_amd64.deb
 deviceshare-agent --version
 deviceshare-hub --version
 ```
