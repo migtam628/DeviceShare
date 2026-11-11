@@ -2,6 +2,9 @@ name: Build GitHub Release
 
 on:
   push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release.yml"
     tags:
       - "v*-alpha.*"
   workflow_dispatch:
@@ -16,7 +19,7 @@ permissions:
 
 env:
   # Future releases are explicit version tags or an intentional manual dispatch.
-  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2.0-alpha.5' }}
 
 jobs:
   test:
@@ -108,7 +111,7 @@ jobs:
             DeviceShare-macos-arm64.dmg \
             DeviceShare-macos-x64.pkg \
             DeviceShare-macos-x64.dmg \
-            DeviceShare_0.2.0.alpha4_amd64.deb; do
+            DeviceShare_0.2.0.alpha5_amd64.deb; do
             test -s "$package" || { echo "Missing release asset $package"; exit 1; }
           done
           sha256sum DeviceShare* > SHA256SUMS.txt
@@ -125,5 +128,5 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "DeviceShare ${RELEASE_TAG}" \
-            --notes "DeviceShare alpha.4: redesigned six-section web console and macOS sidebar UI. Select a discovered printer, print PDF test pages, custom text and PDF/PNG documents with bounded copies/media/duplex options through an authenticated agent. New Settings includes revocable remembered browser sign-in (no raw key in browser storage) and optional macOS Keychain key saving. CUPS queue enabled is NOT proof printer hardware is online or paper has printed. Windows PDF printing remains unsupported. Package builds include macOS app PKG/DMG, Windows MSI/setup EXE, Linux DEB and portable ZIPs. Unsigned/unnotarized developer alpha; validate physical hardware before production use." \
+            --notes "DeviceShare alpha.5 guided activation: email/password owner sign-in, automatic host-protected first-run setup from the Mac app, persistent revocable browser sessions, password change/recovery codes and login throttling. Native DeviceShare.app now provides a four-stage activation checklist and verifies actual Hub WebSocket station status rather than only launchd registration. Existing station tokens and print history are preserved. Includes macOS PKG/DMG for Apple Silicon and Intel, Windows MSI/Setup EXE, Linux DEB and portable ZIPs. Packages remain unsigned/unnotarized alpha builds; verify SHA256SUMS and test real printing before production use. Setup guide: docs/AUTH_SETUP.md." \
             --prerelease
