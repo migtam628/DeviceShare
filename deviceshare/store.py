@@ -6,6 +6,7 @@ import hmac
 import json
 import secrets
 import sqlite3
+import time
 from contextlib import contextmanager
 import uuid
 from datetime import datetime, timezone
@@ -42,6 +43,12 @@ class Store:
                 created_at TEXT NOT NULL,
                 revoked_at TEXT
             );
+            CREATE TABLE IF NOT EXISTS admin_sessions (
+                token_sha256 TEXT PRIMARY KEY,
+                api_key_fingerprint TEXT NOT NULL,
+                expires_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_admin_sessions_expiry ON admin_sessions(expires_at);
             """)
             # Crash recovery: sent jobs may have reached hardware. Never replay.
             db.execute("UPDATE jobs SET status='unknown', updated_at=? WHERE status='sent'", (now(),))
@@ -188,3 +195,37 @@ class Store:
                 "WHERE agent_id=? AND revoked_at IS NULL",
                 (now(), agent_id),
             ).rowcount == 1
+
+    def issue_admin_session(self, api_key_fingerprint: str, ttl_seconds: int) -> str:
+        """Opaque session cookie; raw admin API key is never placed in the cookie or DB."""
+        token = secrets.token_urlsafe(32)
+        digest = hashlib.sha256(token.encode("ascii")).hexdigest()
+        expires_at = int(time.time()) + ttl_seconds
+        with self.connect() as db:
+            db.execute("DELETE FROM admin_sessions WHERE expires_at <= ?", (int(time.time()),))
+            db.execute(
+                "INSERT INTO admin_sessions(token_sha256,api_key_fingerprint,expires_at) "
+                "VALUES(?,?,?)", (digest, api_key_fingerprint, expires_at))
+        return token
+
+    def verify_admin_session(self, token: str | None, fingerprint: str) -> bool:
+        if not token or len(token) > 256:
+            return False
+        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT api_key_fingerprint,expires_at FROM admin_sessions "
+                "WHERE token_sha256=?", (digest,)).fetchone()
+        return bool(row and row["expires_at"] > int(time.time())
+                    and hmac.compare_digest(row["api_key_fingerprint"], fingerprint))
+
+    def revoke_admin_session(self, token: str | None) -> None:
+        if not token or len(token) > 256:
+            return
+        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        with self.connect() as db:
+            db.execute("DELETE FROM admin_sessions WHERE token_sha256=?", (digest,))
+
+    def revoke_all_admin_sessions(self) -> None:
+        with self.connect() as db:
+            db.execute("DELETE FROM admin_sessions")
