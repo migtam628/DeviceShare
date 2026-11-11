@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>DeviceShare Settings</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1020;--panel:#151e31;--line:#2c3a51;--muted:#9aabc3;--text:#edf4fe;--accent:#54d2c0}
+*{box-sizing:border-box}
+body{margin:0;font:14px Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+header{background:#0e1728;border-bottom:1px solid var(--line);padding:22px 32px;display:flex;gap:16px;align-items:center;justify-content:space-between}
+.brand{display:flex;gap:14px;align-items:center}.symbol{display:grid;place-items:center;width:42px;height:42px;background:var(--accent);color:#06161b;border-radius:12px;font-weight:900;font-size:24px}
+h1,h2,h3,p{margin:0}h1{font-size:20px}h2{font-size:21px;margin-bottom:7px}h3{font-size:15px;margin-bottom:8px}.sub{font-size:13px;line-height:1.6;color:var(--muted)}
+nav{display:flex;gap:9px}nav a{color:var(--muted);text-decoration:none;padding:9px 14px;border:1px solid var(--line);border-radius:9px}nav a.active{color:var(--accent);border-color:var(--accent)}
+main{max-width:1000px;margin:auto;padding:30px 32px 60px}.intro{margin-bottom:23px}.stack{display:grid;gap:18px}
+.panel{border:1px solid var(--line);background:var(--panel);border-radius:16px;padding:22px}.row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.row+.row{margin-top:14px}
+button,select{font:inherit;border-radius:9px;padding:10px 15px}button{cursor:pointer;color:#06161b;background:var(--accent);border:1px solid transparent;font-weight:700}button:disabled{opacity:.5;cursor:not-allowed}button.secondary{background:#1b263c;border-color:var(--line);color:var(--text)}button.danger{color:#ffd2d2;border:1px solid #92505a;background:transparent}
+select{background:#0e1728;color:var(--text);border:1px solid var(--line);min-width:160px}
+.notice{margin-top:16px;border:1px solid var(--line);padding:12px;border-radius:9px;background:#101a2c;color:#bed0e7}.good{color:var(--accent)}.warn{color:#ffd29e}.error{color:#ffacae}code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#bdd9ff}
+@media(max-width:650px){main,header{padding:18px}header{flex-wrap:wrap}}
+</style>
+</head>
+<body>
+<header>
+<div class="brand"><div class="symbol">D</div><div><h1>DeviceShare</h1><p class="sub">Administration · Alpha</p></div></div>
+<nav aria-label="Main navigation"><a href="/dashboard">Dashboard</a><a class="active" href="/settings" aria-current="page">Settings</a></nav>
+</header>
+<main>
+<div class="intro"><h2>Settings</h2><p class="sub">Manage your dashboard session, device connection, and display preferences.</p></div>
+<div class="stack">
+<section class="panel">
+<h3>Administrator session</h3>
+<p class="sub">DeviceShare does not save the raw administrator key in the browser. When you choose “Remember this browser,” the Hub grants a revocable 30-day sign-in using an HttpOnly cookie.</p>
+<div class="row"><div>Current browser: <strong id="sessionState" class="warn">Checking…</strong></div><button id="signOut" class="secondary" disabled>Sign out this browser</button></div>
+<div class="row"><p class="sub">Sign out all remembered browsers if you used an unfamiliar computer or suspect a stolen session. You will also be signed out here.</p><button id="signOutAll" class="danger" disabled>Revoke all browser sessions</button></div>
+<div class="row"><p class="sub">To replace the administrator API key itself, change the private Hub key file and restart the local Hub. Do not paste keys into logs or source code.</p><a href="/dashboard" style="color:var(--accent)">Return to dashboard</a></div>
+</section>
+<section class="panel">
+<h3>Dashboard preferences</h3>
+<div class="row"><div><strong>Refresh interval</strong><p class="sub">Automatic dashboard polling, stored locally in this browser. This setting contains no secrets.</p></div>
+<select id="refreshInterval" aria-label="Automatic refresh interval">
+<option value="0">Manual only</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option>
+</select>
+</div>
+<div class="row"><p class="sub">DeviceShare never automatically retries uncertain physical print jobs. Refreshing the dashboard only checks status.</p><button id="savePrefs">Save preferences</button></div>
+</section>
+<section class="panel">
+<h3>Hub information</h3>
+<div class="row"><span class="sub">Hub address</span><code id="hubAddress"></code></div>
+<div class="row"><span class="sub">Service health</span><strong id="hubHealth">Checking…</strong></div>
+<div class="row"><span class="sub">Security</span><span class="sub">Keep the local Hub bound to 127.0.0.1 or put a remote Hub behind HTTPS and a trusted reverse proxy.</span></div>
+</section>
+</div>
+<div id="message" class="notice" role="status" aria-live="polite">Checking the current browser session.</div>
+</main>
+<script>
+(() => {
+  "use strict";
+  const el = id => document.getElementById(id);
+  const status = (text, fail=false) => {el("message").textContent=text;el("message").className="notice "+(fail?"error":"good");};
+  let loggedIn=false;
+  const state = async () => {
+    const response=await fetch("/v1/session",{credentials:"same-origin",cache:"no-store"});
+    if(!response.ok) throw new Error("Cannot read session status.");
+    loggedIn=(await response.json()).authenticated===true;
+    el("sessionState").textContent=loggedIn?"Signed in":"Not connected";
+    el("sessionState").className=loggedIn?"good":"warn";
+    el("signOut").disabled=!loggedIn;
+    el("signOutAll").disabled=!loggedIn;
+  };
+  const logout = async all => {
+    if(all && !confirm("Revoke every remembered browser session? All browsers will need to sign in again.")) return;
+    const response=await fetch(all?"/v1/sessions":"/v1/session",{
+      method:"DELETE",credentials:"same-origin",cache:"no-store",
+      headers:{"X-DeviceShare-CSRF":"1"}
+    });
+    if(!response.ok) throw new Error("Sign out failed (HTTP "+response.status+").");
+    await state();
+    status(all?"All remembered browser sessions were revoked.":"You have signed out this browser.");
+  };
+  const guarded = fn => async () => {try{await fn();}catch(e){status(e.message,true);}};
+  el("signOut").addEventListener("click",guarded(()=>logout(false)));
+  el("signOutAll").addEventListener("click",guarded(()=>logout(true)));
+  el("hubAddress").textContent=window.location.origin;
+  el("refreshInterval").value=localStorage.getItem("deviceshare_refresh_seconds")||"30";
+  el("savePrefs").addEventListener("click",()=>{
+    localStorage.setItem("deviceshare_refresh_seconds",el("refreshInterval").value);
+    status("Refresh preferences saved on this browser. No credentials were stored.");
+  });
+  guarded(async()=>{
+    await state();
+    status(loggedIn?"Session verified. You can manage trusted browser access here.":"Not signed in. Return to Dashboard to connect with your key.");
+  })();
+  guarded(async()=>{
+    const response=await fetch("/healthz",{cache:"no-store"});
+    const result=await response.json();
+    el("hubHealth").textContent=response.ok&&result.service==="deviceshare"?"Responding":"Unavailable";
+  })();
+})();
+</script>
+</body>
+</html>
