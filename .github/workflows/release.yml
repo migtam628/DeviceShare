@@ -108,7 +108,7 @@ jobs:
             DeviceShare-macos-arm64.dmg \
             DeviceShare-macos-x64.pkg \
             DeviceShare-macos-x64.dmg \
-            DeviceShare_0.2.0.alpha3_amd64.deb; do
+            DeviceShare_0.2.0.alpha4_amd64.deb; do
             test -s "$package" || { echo "Missing release asset $package"; exit 1; }
           done
           sha256sum DeviceShare* > SHA256SUMS.txt
