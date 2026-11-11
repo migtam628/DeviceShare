@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.0-alpha.3 — Native macOS DeviceShare.app (2026-11-11)
+
+- Added a real SwiftUI management window installed at `/Applications/DeviceShare.app`, packaged for Apple Silicon and Intel Macs.
+- Added first-run configuration, optional loopback-only local hub with a private generated admin key, station pairing/rotation and token file storage.
+- Added explicit local printer, serial and input-only HID approvals, backed by frozen-agent JSON discovery.
+- Added opt-in, per-user launchd startup/shutdown for agent and local hub, with private logs and configuration under Application Support.
+- macOS PKG now installs app and legacy command-line symlinks; DMG includes the drag-install app and PKG.
+- Added secure `--api-key-file` hub startup and `--list-devices` agent CLI, including tests and cross-platform frozen-binary smoke validation.
+- GitHub Actions verified all four platforms, package contents, checksums, and GitHub prerelease publication.
+- **Known limitation:** the macOS app is ad-hoc signed, not Developer-ID signed/notarized. Real-device and first-run acceptance testing remains outstanding.
+
 ## v0.2.0-alpha.2 — Native installer prerelease (2026-11-11)
 
 - Added Windows x64 WiX MSI and Inno Setup EXE installers.
