@@ -26,6 +26,7 @@ struct DeviceShareHome: View {
         case setup = "Setup"
         case devices = "Devices"
         case services = "Services"
+        case settings = "Settings"
     }
 
     var body: some View {
@@ -59,6 +60,9 @@ struct DeviceShareHome: View {
                 servicesPanel
                     .tabItem { Label("Background services", systemImage: "bolt.horizontal.circle") }
                     .tag(Tab.services)
+                settingsPanel
+                    .tabItem { Label("Settings", systemImage: "gearshape") }
+                    .tag(Tab.settings)
             }
 
             HStack(alignment: .top, spacing: 9) {
@@ -144,6 +148,11 @@ struct DeviceShareHome: View {
                                 .textFieldStyle(.roundedBorder)
                                 .frame(minWidth: 380)
                         }
+                        Toggle("Remember remote administrator key in macOS Keychain after pairing",
+                               isOn: $controller.rememberRemoteAdminKey)
+                            .font(.callout)
+                        Text("The local Hub already saves its key in a private file. Remote keys are only kept if you explicitly enable this option.")
+                            .font(.caption).foregroundStyle(.secondary)
                         HStack {
                             Image(systemName: controller.hasToken ? "checkmark.shield.fill" : "lock.shield")
                                 .foregroundStyle(controller.hasToken ? Color.green : Color.secondary)
@@ -256,6 +265,78 @@ struct DeviceShareHome: View {
         if device.id.hasPrefix("hid:") { return "keyboard" }
         if device.id.hasPrefix("usb:") { return "externaldrive" }
         return "circle.dotted.circle"
+    }
+
+    private var settingsPanel: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Hub authentication").font(.headline)
+                        Text("Local Hub keys are saved privately by DeviceShare. To remember a remote administrator key, use macOS Keychain instead of a plain-text configuration file.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                        LabeledContent("Hub URL") {
+                            TextField("https://trusted-hub.example.com", text: $controller.hubURL)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(minWidth: 350)
+                        }
+                        HStack(spacing: 10) {
+                            Image(systemName: controller.savedAdminKeyAvailable ? "key.fill" : "lock.shield")
+                                .foregroundStyle(controller.savedAdminKeyAvailable ? Color.green : Color.secondary)
+                            Text(controller.savedAdminKeyAvailable ? "Remote key saved in Keychain" : "No remote key saved in Keychain for this URL")
+                                .font(.callout)
+                            Spacer()
+                            Button("Check Keychain") { controller.refreshKeychainStatus() }
+                        }
+                        LabeledContent("Administrator key") {
+                            SecureField("Enter remote administrator key", text: $controller.adminAPIKey)
+                                .textFieldStyle(.roundedBorder)
+                                .frame(minWidth: 350)
+                        }
+                        HStack {
+                            Text("The saved key is accessible only to this app through macOS Keychain. Removing it does not revoke an existing Hub session.")
+                                .font(.caption).foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Forget Key") { controller.forgetAdminKeyFromKeychain() }
+                                .disabled(!controller.savedAdminKeyAvailable)
+                            Button("Save to Keychain") { controller.saveAdminKeyToKeychain() }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(controller.adminAPIKey.isEmpty)
+                        }
+                    }
+                }
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Station & local data").font(.headline)
+                        LabeledContent("Station ID") {
+                            Text(controller.stationID).font(.body.monospaced()).textSelection(.enabled)
+                        }
+                        LabeledContent("Configuration folder") {
+                            Text(controller.applicationSupportLocation)
+                                .font(.caption.monospaced()).textSelection(.enabled)
+                        }
+                        HStack {
+                            Button("Open Data Folder") { controller.openSupportDirectory() }
+                            Button("Refresh Service Status") { controller.refreshServices() }
+                            Spacer()
+                            Button("Open Hub Dashboard") { controller.openDashboard() }
+                        }
+                    }
+                }
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("About & security").font(.headline)
+                        Text("DeviceShare v0.2.0-alpha.4")
+                        Text("The web dashboard stores no raw administrator key. Its optional remembered browser login is an HttpOnly, SameSite=Strict, revocable session cookie. Keys for remote hubs can be saved in macOS Keychain on this computer.")
+                            .font(.caption).foregroundStyle(.secondary)
+                        Text("Unsigned developer alpha. Limit the Hub to loopback or HTTPS on a trusted network. A print job accepted by the spooler does not prove physical paper output.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .padding(12)
+        }
+        .onAppear { controller.refreshKeychainStatus() }
     }
 
     private var servicesPanel: some View {
