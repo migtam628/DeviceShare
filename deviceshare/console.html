@@ -123,6 +123,7 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
 </section>
 <section class="card stack">
 <h3>3. Print action</h3>
+<p class="sub">PDF test pages, text, and PDF/PNG documents currently use CUPS on macOS or Linux. Windows RAW spooler printing is available separately; Windows PDF rendering is not yet implemented.</p>
 <div class="callout">Test page prints a one-page PDF with station name, printer name, date, grayscale bars, and an alignment border.</div>
 <button id="testPrint">Print test page</button>
 <div class="divider"></div>
@@ -260,7 +261,7 @@ function renderJobs(){
   const tr=make("tr");
   const detail=j.result&&(j.result.message||j.result.error||j.result.job_id||"");
   const fields=[String(j.id||"").slice(0,10),j.agent_id,j.device_id,j.operation,j.status,detail||"—"];
-  fields.forEach((v,i)=>{const td=make("td",i===0?"mono":"",v);if(i===4)td.append(badge(j.status,j.status==="failed"?"bad":j.status==="accepted"?"ok":"warn"));tr.append(td)});
+  fields.forEach((v,i)=>{const td=make("td",i===0?"mono":"",i===4?"":v);if(i===4)td.append(badge(j.status,j.status==="failed"?"bad":j.status==="accepted"?"ok":"warn"));tr.append(td)});
   target.append(tr);
  }
 }
