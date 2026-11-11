@@ -63,6 +63,14 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
 .toast.bad{color:#ffc8d0;border-color:#80505e}.quicklink{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px 18px}
 .quicklink:hover{border-color:var(--accent)}.link{color:var(--accent);text-decoration:underline}
 .settings-item{padding:17px 0;border-bottom:1px solid var(--line)}.settings-item:last-child{border-bottom:0}
+.eyebrow{font-weight:800;font-size:10px;letter-spacing:2px;color:var(--accent)}
+.auth-gate{min-height:calc(100vh - 210px);display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,435px);gap:36px;align-items:center;padding:28px 0}
+.auth-intro{max-width:570px}.auth-intro h2{font-size:39px;margin:15px 0 12px;line-height:1.2}.auth-intro>p{font-size:16px;color:var(--muted)}
+.setup-steps{display:grid;gap:19px;margin:35px 0}.setup-steps>div{display:flex;gap:16px;align-items:center}.setup-steps span{display:grid;place-items:center;border:1px solid #4a6b79;color:var(--accent);border-radius:12px;width:44px;height:44px;flex:none;font-weight:800}.setup-steps strong{display:block}.setup-steps small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+.auth-card{padding:28px}.auth-card h3{font-size:24px}.auth-card button{width:100%}.auth-card .text-button{width:auto;align-self:start}.inline-choice{display:flex;gap:9px;align-items:center;font-size:12px;color:var(--muted);font-weight:400}.text-button{border:0;background:none;color:var(--accent);padding:5px 0;font-weight:700}
+.setup-progress{margin-top:18px;display:grid;gap:9px}.progress-step{display:flex;gap:14px;align-items:center;border-bottom:1px solid var(--line);padding:12px 3px}.progress-step:last-child{border:0}.progress-number{display:grid;place-items:center;background:#21334a;border:1px solid #3b546d;border-radius:50%;width:29px;height:29px;font-size:12px;font-weight:800}.progress-step.done .progress-number{color:#061b16;background:var(--accent)}.progress-step .sub{margin-top:3px}
+@media(max-width:1050px){.auth-gate{grid-template-columns:1fr}.auth-intro{max-width:none}.setup-steps{grid-template-columns:1fr 1fr}}
+@media(max-width:650px){.setup-steps{grid-template-columns:1fr}.auth-intro h2{font-size:30px}}
 @media(max-width:1050px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.wide{grid-column:span 2}.split{grid-template-columns:1fr}}
 @media(max-width:750px){.shell{grid-template-columns:1fr}.sidebar{padding:10px;gap:10px}.nav-group{display:flex;overflow-x:auto}.navheading,.sidebar-footer{display:none}.brand{padding:0}.topbar{height:auto;padding:16px}.content{padding:22px 16px}.grid,.form-grid,.form-grid.two{grid-template-columns:1fr}.wide{grid-column:span 1}.page-intro{display:block}.page-intro button{margin-top:10px}}
 </style>
@@ -88,12 +96,69 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
 <main class="content">
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
+<div id="authGate" class="auth-gate" hidden>
+  <section class="auth-intro">
+    <span class="eyebrow">DEVICE MANAGEMENT, SIMPLIFIED</span>
+    <h2 id="authWelcome">Welcome to DeviceShare.</h2>
+    <p>One secure place for your printers, local stations and print workflows.</p>
+    <div class="setup-steps">
+      <div><span>01</span><div><strong>Activate your account</strong><small>Create the owner email and password, once.</small></div></div>
+      <div><span>02</span><div><strong>Connect your station</strong><small>Pair the Mac agent without exposing keys in the browser.</small></div></div>
+      <div><span>03</span><div><strong>Choose a printer</strong><small>Approve the local queue you want to share.</small></div></div>
+      <div><span>04</span><div><strong>Print a test page</strong><small>Verify paper output before real jobs.</small></div></div>
+    </div>
+    <div class="callout">DeviceShare keeps your printers under your control. An administrator password signs you into the dashboard; device approvals stay local to each station.</div>
+  </section>
+  <section class="card auth-card">
+    <div id="authLogin" class="stack" hidden>
+      <span class="eyebrow">WELCOME BACK</span>
+      <h3>Sign in to your workspace</h3>
+      <p class="sub">Use the email and password you created during activation.</p>
+      <form id="loginForm" class="stack" autocomplete="on">
+        <div><label for="loginEmail">Email address</label><input id="loginEmail" type="email" autocomplete="username" required placeholder="you@example.com"></div>
+        <div><label for="loginPassword">Password</label><input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Enter your password"></div>
+        <label class="inline-choice"><input id="rememberBrowser" type="checkbox" checked> Stay signed in on this computer for 30 days</label>
+        <button type="submit" id="signIn">Sign in</button>
+      </form>
+      <button type="button" class="text-button" id="forgotPassword">Forgot password?</button>
+    </div>
+    <div id="authActivate" class="stack" hidden>
+      <span class="eyebrow">FIRST-TIME ACTIVATION</span>
+      <h3>Create your administrator account</h3>
+      <p class="sub">Set up one owner account for this Hub. You only do this once.</p>
+      <form id="activateForm" class="stack" autocomplete="on">
+        <div><label for="activationEmail">Admin email</label><input type="email" id="activationEmail" autocomplete="username" required placeholder="you@example.com"></div>
+        <div><label for="activationPassword">Password (12+ characters)</label><input type="password" id="activationPassword" minlength="12" autocomplete="new-password" required></div>
+        <div><label for="activationConfirm">Confirm password</label><input type="password" id="activationConfirm" minlength="12" autocomplete="new-password" required></div>
+        <div><label for="activationCode">One-time activation code</label><input id="activationCode" autocomplete="off" maxlength="128" required placeholder="Get this from DeviceShare.app"></div>
+        <p class="sub">On your Mac, open DeviceShare.app → Overview → Activate account. Alternatively, run <code>deviceshare-hub --issue-activation-code</code> on the host. Codes expire after 10 minutes.</p>
+        <button type="submit">Create account</button>
+      </form>
+    </div>
+    <div id="authRecovery" class="stack" hidden>
+      <span class="eyebrow">ACCOUNT RECOVERY</span>
+      <h3>Reset your password</h3>
+      <p class="sub">For security, recovery is initiated locally on the Hub—not by an unsecured email link.</p>
+      <form id="recoveryForm" class="stack">
+        <div><label for="recoveryEmail">Account email</label><input id="recoveryEmail" type="email" autocomplete="username" required></div>
+        <div><label for="recoveryCode">Host recovery code</label><input id="recoveryCode" required autocomplete="off"></div>
+        <div><label for="recoveryPassword">New password (12+ characters)</label><input type="password" minlength="12" id="recoveryPassword" autocomplete="new-password" required></div>
+        <p class="sub">On the Hub computer, run <code>deviceshare-hub --issue-recovery-code</code>. The code is single-use and lasts 10 minutes.</p>
+        <button type="submit">Reset password</button>
+      </form>
+      <button type="button" class="text-button" id="backToSignIn">Back to sign in</button>
+    </div>
+  </section>
+</div>
+<div id="workspaceContent">
+
 <section data-screen="dashboard">
 <div class="page-intro"><div><h2>Good to see you.</h2><p class="sub">A clear view of your printing stations, queues and recent activity.</p></div><a class="badge" href="/studio">Open Print Studio</a></div>
 <div class="grid">
 <div class="card soft"><div class="stat-label">Connected stations</div><div id="countAgents" class="stat-num">—</div><p class="sub">Active DeviceShare agents</p></div>
 <div class="card soft"><div class="stat-label">Discovered printers</div><div id="countPrinters" class="stat-num">—</div><p class="sub">Across connected stations</p></div>
 <div class="card soft"><div class="stat-label">Recent print jobs</div><div id="countJobs" class="stat-num">—</div><p class="sub">Most recent 100 jobs</p></div>
+<div class="card full"><div class="section-header"><h3>Get DeviceShare ready</h3><span class="badge">Setup checklist</span></div><div id="setupProgress" class="setup-progress"></div></div>
 <div class="card wide"><div class="section-header"><h3>Stations</h3><a class="link small" href="/devices">Manage stations</a></div><div id="overviewStations"><div class="empty">Connect to view stations.</div></div></div>
 <div class="card"><h3>Quick actions</h3><div class="stack"><a class="quicklink" href="/printers">Select a printer <span>›</span></a><a class="quicklink" href="/studio">Print a test page <span>›</span></a><a class="quicklink" href="/jobs">Review print activity <span>›</span></a></div></div>
 <div class="card full"><h3>Printing health</h3><p id="overviewHealth" class="callout">Sign in to review your printer queues.</p></div>
@@ -158,18 +223,19 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
 </section>
 
 <section data-screen="settings" hidden>
-<div class="page-intro"><div><h2>Settings</h2><p class="sub">Authentication, trusted browsers and dashboard preferences. Administrator keys never enter browser storage.</p></div></div>
+<div class="page-intro"><div><h2>Settings</h2><p class="sub">Account security, trusted browser sessions, Hub connection and app preferences.</p></div><span class="badge ok">Administrator access</span></div>
 <div class="stack">
-<section class="card"><h3>Administrator sign-in</h3><p class="sub">Use the Hub API key once to start a revocable session. “Remember this browser” saves only a secure HttpOnly cookie for 30 days, not the key itself.</p>
-<div class="row" style="margin-top:18px"><input type="password" id="apiKey" placeholder="Hub administrator API key" autocomplete="off" style="max-width:380px"><button id="signIn">Connect</button></div>
-<div class="row" style="margin-top:12px"><label style="margin:0"><input type="checkbox" id="rememberBrowser" checked> Remember this browser for 30 days</label><span id="sessionBadge" class="badge">Not connected</span></div>
-<div class="divider"></div><div class="row between"><div><h4>Trusted browsers</h4><p class="sub">Sign out this browser, or revoke every remembered session if you suspect unauthorized access.</p></div><div class="row"><button class="secondary" id="signOut">Sign out</button><button class="danger" id="signOutAll">Revoke all sessions</button></div></div>
+<section class="card"><h3>Account</h3><div class="settings-item row between"><div><h4>Administrator email</h4><p class="sub">This is your dashboard sign-in identity.</p></div><strong id="accountEmail">—</strong></div><div class="settings-item"><h4>Change password</h4><p class="sub">Changing your password signs out every remembered browser.</p><form id="changePasswordForm" class="form-grid two" style="margin-top:12px">
+<div><label for="currentPassword">Current password</label><input id="currentPassword" type="password" autocomplete="current-password" required></div><div><label for="newPassword">New password (12+ characters)</label><input id="newPassword" type="password" minlength="12" autocomplete="new-password" required></div><div><label for="confirmPassword">Confirm new password</label><input id="confirmPassword" type="password" minlength="12" autocomplete="new-password" required></div><div style="align-self:end"><button type="submit">Change password</button></div>
+</form></div>
 </section>
-<section class="card"><h3>Display preferences</h3><div class="row between"><div><h4>Automatic refresh</h4><p class="sub">Only a refresh interval is saved locally; never credentials.</p></div><select id="refreshInterval" style="max-width:210px"><option value="0">Manual only</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option></select></div><div class="row" style="justify-content:flex-end;margin-top:14px"><button class="secondary" id="saveSettings">Save preferences</button></div></section>
-<section class="card"><h3>Hub connection & safety</h3><div class="settings-item row between"><span>Hub URL</span><span id="hubAddress" class="mono small"></span></div><div class="settings-item row between"><span>Hub health</span><span id="hubHealth" class="badge">Checking</span></div><div class="callout warn" style="margin-top:15px">Keep the Hub bound to loopback or behind an authenticated HTTPS proxy. Printers require local approval. The web dashboard cannot override station allowlists.</div></section>
+<section class="card"><div class="row between"><div><h3>Signed-in browsers</h3><p class="sub">A remembered session uses a revocable HttpOnly cookie, not a stored API key or password.</p></div><span id="sessionBadge" class="badge">Not connected</span></div><div class="row" style="margin-top:16px"><button class="secondary" id="signOut">Sign out this browser</button><button class="danger" id="signOutAll">Revoke all browser sessions</button></div></section>
+<section class="card"><h3>Dashboard preferences</h3><div class="row between"><div><h4>Automatic refresh</h4><p class="sub">Only refresh preferences and your selected printer are saved in local browser storage.</p></div><select id="refreshInterval" style="max-width:210px"><option value="0">Manual only</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option></select></div><div class="row" style="justify-content:flex-end;margin-top:14px"><button class="secondary" id="saveSettings">Save preferences</button></div></section>
+<section class="card"><h3>Hub and security</h3><div class="settings-item row between"><span>Hub URL</span><span id="hubAddress" class="mono small"></span></div><div class="settings-item row between"><span>Hub health</span><span id="hubHealth" class="badge">Checking</span></div><div class="callout warn" style="margin-top:15px">Your Mac app retains a private machine-to-machine key for agent provisioning. Your web dashboard signs in using email and password. Keep remote Hubs behind HTTPS and never share activation or recovery codes.</div></section>
 </div>
 </section>
 <div class="footer-note">DeviceShare alpha · CUPS queue enabled is not the same as printer physically online · A queued job must never be retried blindly.</div>
+</div>
 </main>
 </div>
 </div>
