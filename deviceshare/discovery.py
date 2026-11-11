@@ -4,6 +4,8 @@ import platform
 import shutil
 import subprocess
 
+from .hid_devices import list_hid_devices
+
 def discover() -> list[dict[str, str]]:
     devices = [{"id": "sim:printer", "kind": "simulator", "label": "Simulated printer"}]
     if platform.system() == "Windows":
@@ -46,6 +48,11 @@ def discover() -> list[dict[str, str]]:
             devices.append({"id": identifier, "kind": "usb-readonly",
                             "label": f"USB {device.idVendor:04x}:{device.idProduct:04x}"})
     except (ImportError, OSError, ValueError):
+        pass
+    try:
+        devices.extend(list_hid_devices())
+    except (OSError, RuntimeError, ValueError):
+        # HID enumeration can be unavailable without OS permissions.
         pass
     return devices
 
