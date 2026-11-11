@@ -1,0 +1,66 @@
+name: Native installer previews
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "installers/**"
+      - "scripts/build_native_*"
+      - "docs/INSTALL_NATIVE.md"
+      - ".github/workflows/native-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Native ${{ matrix.suffix }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            suffix: linux-x64
+          - os: windows-latest
+            suffix: windows-x64
+          - os: macos-15
+            suffix: macos-arm64
+          - os: macos-15-intel
+            suffix: macos-x64
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Compile and smoke-test DeviceShare binaries
+        shell: bash
+        env:
+          RUNNER_OS: ${{ runner.os }}
+        run: bash scripts/build_portable.sh "${{ matrix.suffix }}"
+      - name: Build Linux DEB
+        if: runner.os == 'Linux'
+        shell: bash
+        run: bash scripts/build_native_linux.sh
+      - name: Build Windows MSI and setup EXE
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: .\scripts\build_native_windows.ps1
+      - name: Build macOS PKG and DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        run: bash scripts/build_native_macos.sh "${{ matrix.suffix }}"
+      - name: Publish preview packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-preview-${{ matrix.suffix }}
+          path: |
+            release-assets/*.msi
+            release-assets/*.exe
+            release-assets/*.pkg
+            release-assets/*.dmg
+            release-assets/*.deb
+          if-no-files-found: error
+          retention-days: 14
