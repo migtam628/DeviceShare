@@ -10,3 +10,5 @@ build/
 config/agent.json
 data/
 .DS_Store
+
+config/agent.token
