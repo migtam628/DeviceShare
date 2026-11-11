@@ -2,18 +2,18 @@
 
 **DeviceShare** is a self-hosted peripheral bridge for sending print jobs and communicating with locally attached hardware from websites, POS applications, inventory systems, and remote servers.
 
-**Project status: v0.2.0-alpha.3.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not connect to untrusted devices, commands, or the open internet.
+**Project status: v0.2.0-alpha.4.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not connect to untrusted devices, commands, or the open internet.
 
 ## Native installation packages
 
-**[Download DeviceShare v0.2.0-alpha.3](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.3)**
+**[Download DeviceShare v0.2.0-alpha.4](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.4)**
 
 | Platform | Native installer |
 | --- | --- |
-| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-Setup-windows-x64.exe) |
-| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-macos-arm64.pkg) |
-| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare-macos-x64.pkg) |
-| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.3/DeviceShare_0.2.0.alpha3_amd64.deb) |
+| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-Setup-windows-x64.exe) |
+| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-macos-arm64.pkg) |
+| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare-macos-x64.pkg) |
+| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.4/DeviceShare_0.2.0.alpha4_amd64.deb) |
 
 Read **[native installer setup](docs/INSTALL_NATIVE.md)** and compare downloads with the release's `SHA256SUMS.txt`. Installer files include both the Agent and Hub; they do not automatically authorize peripherals or install OS drivers. Portable ZIP builds remain available.
 
