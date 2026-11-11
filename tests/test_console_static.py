@@ -30,5 +30,5 @@ def test_embedded_console_javascript_syntax():
     script = re.search(r"<script>(.*?)</script>", html, re.DOTALL)
     assert script is not None
     process = subprocess.run(["node", "--check"], input=script.group(1),
-                             capture_output=True, text=True, timeout=20)
+                             capture_output=True, text=True, encoding="utf-8", timeout=20)
     assert process.returncode == 0, process.stderr
