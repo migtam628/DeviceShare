@@ -106,7 +106,7 @@
       <form id="jobForm" class="stack">
         <div><label for="jobAgent">Agent ID</label><input id="jobAgent" value="station-01" maxlength="80" required></div>
         <div><label for="jobDevice">Device identifier</label><input id="jobDevice" value="sim:printer" maxlength="300" required></div>
-        <div><label for="jobOperation">Operation</label><select id="jobOperation"><option value="simulate">Simulator</option><option value="print_raw">Print raw / ZPL</option><option value="serial_exchange">Serial exchange</option></select></div>
+        <div><label for="jobOperation">Operation</label><select id="jobOperation"><option value="simulate">Simulator</option><option value="print_raw">Print raw / ZPL</option><option value="serial_exchange">Serial exchange</option><option value="hid_read">HID input read (approved device only)</option></select></div>
         <div><label for="jobText">UTF-8 test payload</label><textarea id="jobText" maxlength="8192" placeholder="Hello DeviceShare"></textarea></div>
         <button type="submit">Submit job</button>
       </form>
@@ -236,10 +236,14 @@
       if (data.length > 8192) throw new Error("Dashboard limits text payloads to 8 KiB.");
       // UTF-8 bytes into base64; no URI encoding or non-ASCII corruption.
       let binary=""; for (const byte of data) binary += String.fromCharCode(byte);
+      if (operation === "hid_read" && data.length) {
+        throw new Error("HID reads must not contain outgoing payload data.");
+      }
       const body = {
         agent_id:el("jobAgent").value.trim(),device_id:el("jobDevice").value.trim(),
         operation,data_base64:btoa(binary),options:operation === "serial_exchange"
-          ? {baudrate:9600,read_size:0} : {}
+          ? {baudrate:9600,read_size:0}
+          : (operation === "hid_read" ? {read_size:64,timeout_ms:500} : {})
       };
       const result=await request("/v1/jobs",{method:"POST",body:JSON.stringify(body)});
       await refresh(); status("Job " + result.id.slice(0,10) + " submitted. Status: " + result.status);
