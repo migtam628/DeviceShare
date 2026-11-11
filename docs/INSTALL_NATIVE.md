@@ -63,7 +63,7 @@ approved. There is no Windows background-system-service installation yet.
 
 ## macOS Apple Silicon or Intel
 
-**Version 0.2.0-alpha.3** includes a real native SwiftUI
+**Version 0.2.0-alpha.4** includes a real native SwiftUI
 `/Applications/DeviceShare.app` with station setup, local-hub management,
 pairing, device approvals and per-user service start/stop.
 
