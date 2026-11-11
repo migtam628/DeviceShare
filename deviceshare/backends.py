@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import MAX_PAYLOAD_BYTES
+from .hid_devices import read_report
 
 def _payload(job: dict) -> bytes:
     try:
@@ -95,6 +96,16 @@ def execute(job: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
         if operation == "print_raw":
             return _raw_print(printer, data)
         return _document_print(printer, data, options.get("mime_type", ""))
+
+    if operation == "hid_read":
+        if data:
+            raise ValueError("HID input reads cannot write payload bytes")
+        return read_report(
+            device_id,
+            config.get("allowed_hid_devices", []),
+            options.get("read_size", 64),
+            options.get("timeout_ms", 500),
+        )
 
     if operation == "serial_exchange":
         if not device_id.startswith("serial:"):
