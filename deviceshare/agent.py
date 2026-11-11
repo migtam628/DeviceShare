@@ -39,8 +39,11 @@ def load_config(path: str) -> dict:
 async def run(config: dict):
     agent_id = config.get("agent_id", "")
     token = os.getenv("DEVICESHARE_AGENT_TOKEN", "")
+    token_file = config.get("token_file")
+    if not token and token_file:
+        token = Path(token_file).expanduser().read_text(encoding="utf-8").strip()
     if len(token) < 16:
-        raise ValueError("DEVICESHARE_AGENT_TOKEN must contain 16 or more characters")
+        raise ValueError("Agent token is required: set DEVICESHARE_AGENT_TOKEN or token_file")
     url = websocket_url(
         config.get("hub_url", "http://127.0.0.1:8765"), agent_id,
         allow_insecure_remote=config.get("allow_insecure_remote", False),
@@ -56,24 +59,37 @@ async def run(config: dict):
                 ping_interval=20,
                 ping_timeout=20,
             ) as socket:
-                await socket.send(json.dumps({"type": "inventory", "devices": discover()}))
+                async def refresh_inventory():
+                    while True:
+                        devices = await asyncio.to_thread(discover)
+                        await socket.send(json.dumps({"type": "inventory", "devices": devices}))
+                        await asyncio.sleep(30)
+
+                inventory_task = asyncio.create_task(refresh_inventory())
                 print("Connected to DeviceShare hub", flush=True)
-                async for message in socket:
-                    payload = json.loads(message)
-                    if payload.get("type") != "job":
-                        continue
-                    job_id = payload.get("id", "")
+                try:
+                    async for message in socket:
+                        payload = json.loads(message)
+                        if payload.get("type") != "job":
+                            continue
+                        job_id = payload.get("id", "")
+                        try:
+                            # Avoid blocking the WebSocket event loop on physical I/O.
+                            result = await asyncio.to_thread(execute, payload, config)
+                            reply = {"type": "result", "id": job_id,
+                                     "success": True, "detail": result}
+                        except Exception as exc:
+                            reply = {"type": "result", "id": job_id,
+                                     "success": False,
+                                     "detail": {"error": str(exc)[:500]}}
+                        await socket.send(json.dumps(reply))
+                finally:
+                    inventory_task.cancel()
                     try:
-                        # Avoid blocking the WebSocket event loop on physical I/O.
-                        result = await asyncio.to_thread(execute, payload, config)
-                        reply = {"type": "result", "id": job_id,
-                                 "success": True, "detail": result}
-                    except Exception as exc:
-                        reply = {"type": "result", "id": job_id,
-                                 "success": False,
-                                 "detail": {"error": str(exc)[:500]}}
-                    await socket.send(json.dumps(reply))
-        except (OSError, ValueError, Exception) as exc:
+                        await inventory_task
+                    except asyncio.CancelledError:
+                        pass
+        except Exception as exc:
             # Connection errors and server restarts: reconnect, never replay local jobs.
             print(f"Disconnected: {type(exc).__name__}: {exc}", flush=True)
         await asyncio.sleep(5)
