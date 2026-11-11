@@ -6,13 +6,12 @@ DeviceShare publishes native installer **formats** for its command-line Hub and 
 |---|---|---|---|
 | Windows x64 | `.msi` (WiX) | `C:\Program Files\DeviceShare` | Apps & Features / `msiexec /x` |
 | Windows x64 | Setup `.exe` (Inno Setup) | `C:\Program Files\DeviceShare Setup` | Apps & Features / uninstaller |
-| macOS Apple Silicon | `.pkg` or `.dmg` containing .pkg | `/usr/local/bin/` and `/usr/local/share/` | Manual removal, pkg receipt remains |
-| macOS Intel | `.pkg` or `.dmg` containing .pkg | `/usr/local/bin/` and `/usr/local/share/` | Manual removal, pkg receipt remains |
+| macOS Apple Silicon | `.pkg` or `.dmg` with app/PKG | `/Applications/DeviceShare.app` | Stop services; remove app and user data separately |
+| macOS Intel | `.pkg` or `.dmg` with app/PKG | `/Applications/DeviceShare.app` | Stop services; remove app and user data separately |
 | Debian/Ubuntu x64 | `.deb` | `/usr/bin/`, `/usr/share/deviceshare/` | `sudo apt remove deviceshare` |
 
 **Choose one Windows installer format, not both.** These packages install
-command-line executables and sample configuration files. They are **not**
-signed, notarized, production-hardened services, or graphical management apps.
+command-line executables and sample configuration files. The macOS alpha.3 package includes a native SwiftUI management app; none of these builds are production-hardened or Developer-ID-signed/notarized.
 The DeviceShare dashboard is provided by the hub at `/dashboard`.
 
 ## Before installation
@@ -64,33 +63,88 @@ approved. There is no Windows background-system-service installation yet.
 
 ## macOS Apple Silicon or Intel
 
-The `.dmg` disk image includes the same `.pkg` installer offered
-separately, plus setup documentation. Mount the DMG and run the
-enclosed PKG, or launch the standalone PKG directly.
+**Version 0.2.0-alpha.3** includes a real native SwiftUI
+\`/Applications/DeviceShare.app\` with station setup, local-hub management,
+pairing, device approvals and per-user service start/stop.
 
-**No GUI application is placed in /Applications.** The CLI executables
-are installed at `/usr/local/bin/deviceshare-agent` and
-`/usr/local/bin/deviceshare-hub`. They can be checked with:
+### Installer options
 
-```bash
+- **PKG:** Run \`DeviceShare-macos-arm64.pkg\` or the Intel \`macos-x64.pkg\`.
+  The installer places \`DeviceShare.app\` in \`/Applications\` and updates
+  the legacy \`/usr/local/bin/deviceshare-agent\` and
+  \`/usr/local/bin/deviceshare-hub\` paths as links into the app.
+- **DMG:** Mount it and either drag \`DeviceShare.app\` into Applications,
+  or run the included PKG. Dragging the app installs the GUI and its bundled
+  executables but does **not** install the two optional command-line links.
+  Do not run the app from the mounted disk image; move it to Applications first.
+
+### First launch
+
+1. Open Finder → Applications → **DeviceShare**.
+2. Under **First-run setup**, click **Start Local Hub** if this Mac will
+   host both the hub and agent, or enter the HTTPS URL of an existing
+   DeviceShare hub.
+3. Enter a unique Station ID, then **Save Station Settings**.
+4. Choose **Pair / Rotate Credential**. The local hub uses a newly
+   generated private administrator key file. A remote hub requires you
+   to enter its admin key (used once, not saved by the app).
+   Alternatively, paste a pre-issued station token.
+5. Select **Local devices** and scan. Explicitly approve only printers,
+   serial ports, and read-only HID devices that you trust, then save.
+6. Under **Background services**, click **Start / Restart** for the
+   Peripheral Agent. A per-user LaunchAgent enables reconnection while
+   your user session is active.
+7. Use **Open Hub Dashboard** to confirm the station shows as online;
+   a loaded LaunchAgent is not proof of a working network connection.
+
+The app never grants blanket USB access or opens the hub to your network.
+Its local hub binds to loopback \`127.0.0.1:8765\` only.
+
+### Local state and diagnostics
+
+Persistent user data stays outside the installer in:
+
+\`\`\`text
+~/Library/Application Support/DeviceShare/
+  agent.json
+  agent.token
+  hub-api-key       (when using the optional local hub)
+  deviceshare.db    (when using the optional local hub)
+  logs/
+  simulator/
+\`\`\`
+
+Files containing tokens, keys and configs have private permissions. The
+LaunchAgent plists are created only after you explicitly start a service:
+
+\`\`\`text
+~/Library/LaunchAgents/com.mttechservices.deviceshare.agent.plist
+~/Library/LaunchAgents/com.mttechservices.deviceshare.hub.plist
+\`\`\`
+
+For command-line diagnostics after installing the PKG:
+
+\`\`\`bash
 /usr/local/bin/deviceshare-agent --version
 /usr/local/bin/deviceshare-hub --version
-```
+\`\`\`
 
-The example config is installed at
-`/usr/local/share/deviceshare/agent.example.json`.
-Copy it into a private directory, e.g.
-`~/Library/Application Support/DeviceShare/config/agent.json` and
-create the paired token file there. Set `token_file` and
-`simulator_dir` to private **absolute paths**.
+The older \`com.deviceshare.agent\` startup definition from the portable
+installer is separate. If you enabled it previously, stop and disable it
+before enabling the new app-managed agent, or two agents may connect using
+the same station ID.
 
-The package installs no privileged helper, launch daemon or
-auto-starting user session. To run it automatically after you configure
-the agent, use the repository's documented per-user LaunchAgent script.
-Uninstall by removing binaries in `/usr/local/bin/`, files in
-`/usr/local/share/deviceshare/` and
-`/usr/local/share/doc/deviceshare/`. The macOS installer receipt
-can remain after manual removal; do not delete other packages' files.
+### Uninstall notes
+
+Stop both services from DeviceShare.app before uninstalling. Removing
+\`/Applications/DeviceShare.app\` and the CLI symlinks removes the program
+but **does not erase private pairing tokens or user data**. Delete those
+separately if you intend to decommission the station. With a PKG install,
+macOS package receipts can remain after manual file removal.
+
+This alpha app has no Apple Developer ID signature or notarization.
+It is ad-hoc signed for basic platform integrity, not trusted distribution.
+Do not bypass organizational device policies to run it.
 
 ## Debian/Ubuntu x64
 
@@ -148,6 +202,6 @@ Remove with `sudo apt remove deviceshare`.
 - HID report reads remain explicit, bounded and local-allowlist-only.
 - MSI and PKG provide standard package formats and uninstall/receipt
   metadata. Setup EXE provides normal application uninstallation.
-- Not a full GUI app: there is no taskbar/tray app, pairing wizard,
-  background Windows service, automatic device approval, driver
-  installation or privileged USB permission helper.
+- macOS now includes a native pairing and device-approval window. Windows/Linux
+  remain CLI-first; no tray app, Windows system service, driver installation,
+  automatic device approval, or privileged USB permissions helper is included.
