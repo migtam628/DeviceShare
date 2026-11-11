@@ -96,7 +96,7 @@ async def run(config: dict):
 
 def main():
     parser = argparse.ArgumentParser(description="DeviceShare local agent")
-    parser.add_argument("--version", action="version", version="DeviceShare Agent 0.2.0a2")
+    parser.add_argument("--version", action="version", version="DeviceShare Agent 0.2.0a3")
     parser.add_argument("--list-devices", action="store_true",
                         help="Print read-only local device inventory as JSON and exit")
     parser.add_argument("--config", default=os.environ.get(
