@@ -266,6 +266,22 @@
       await request("/v1/agents/" + encodeURIComponent(id) + "/credential",{method:"DELETE"});
       await refresh(); status("Credentials revoked for " + id + ".");
     }); });
+    // Only non-secret refresh preferences are stored in localStorage.
+    const rawInterval = Number(localStorage.getItem("deviceshare_refresh_seconds") || "30");
+    const refreshSeconds = [0,15,30,60].includes(rawInterval) ? rawInterval : 30;
+    if (refreshSeconds > 0) {
+      window.setInterval(() => {
+        if (!connected || document.hidden) return;
+        refresh().catch(error => {
+          if (String(error.message).includes("401") || String(error.message).includes("Authentication")) {
+            clearDashboard();
+            status("Session expired or was revoked. Sign in again.", true);
+          } else {
+            status("Auto-refresh failed: " + error.message, true);
+          }
+        });
+      }, refreshSeconds * 1000);
+    }
     el("jobForm").addEventListener("submit", event => { event.preventDefault(); guarded(async () => {
       const operation = el("jobOperation").value;
       const text = el("jobText").value;
