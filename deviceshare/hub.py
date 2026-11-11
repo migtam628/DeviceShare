@@ -73,8 +73,31 @@ def create_app(
         except ValueError:
             return False
 
+    def active_session_fingerprint() -> str:
+        account = store.admin_account()
+        if account is None:
+            return fingerprint
+        return hmac.new(
+            api_key.encode("utf-8"),
+            ("deviceshare-owner-session-v1:" + account["password_hash"]).encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
     def cookie_authorized(request: Request) -> bool:
-        return store.verify_admin_session(request.cookies.get(session_cookie), fingerprint)
+        return store.verify_admin_session(request.cookies.get(session_cookie), active_session_fingerprint())
+
+    def require_transport(request: Request) -> None:
+        if request.url.scheme != "https" and request.url.hostname not in ("localhost", "127.0.0.1", "::1"):
+            raise HTTPException(status_code=400, detail="Use HTTPS for remote account operations")
+
+    def assign_cookie(request: Request, response: Response, *, remember: bool) -> None:
+        ttl = 30 * 86400 if remember else 12 * 3600
+        token = store.issue_admin_session(active_session_fingerprint(), ttl)
+        response.set_cookie(
+            key=session_cookie, value=token, httponly=True, secure=request.url.scheme == "https",
+            samesite="strict", path="/v1", max_age=ttl if remember else None,
+        )
+        response.headers["Cache-Control"] = "no-store"
 
     async def require_api_key(request: Request, key: str | None = Security(auth_header)):
         # A supplied API key always wins, even if invalid; never let an invalid header
@@ -92,6 +115,96 @@ def create_app(
             if request.headers.get("x-deviceshare-csrf") != "1" or not same_origin(request):
                 raise HTTPException(status_code=403, detail="Same-origin request required")
 
+    @app.get("/v1/auth/status")
+    async def admin_status(request: Request, response: Response):
+        account = store.admin_account()
+        authenticated = cookie_authorized(request)
+        response.headers["Cache-Control"] = "no-store"
+        return {
+            "activated": account is not None,
+            "authenticated": authenticated,
+            "email": account["email"] if authenticated and account else None,
+        }
+
+    @app.post("/v1/auth/code")
+    async def issue_bootstrap_code(request: Request, body: dict):
+        require_transport(request)
+        if not same_origin(request):
+            raise HTTPException(status_code=403, detail="Same-origin request required")
+        key = request.headers.get("x-api-key")
+        if not key or not secrets.compare_digest(key, api_key):
+            raise HTTPException(status_code=401, detail="Host administrator credentials required")
+        purpose = body.get("purpose", "activate")
+        try:
+            code = store.issue_activation_code(purpose)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        # Intended for local native app or CLI. Never put this code in a URL.
+        return {"code": code, "expires_in": 600, "purpose": purpose}
+
+    @app.post("/v1/auth/activate", status_code=201)
+    async def activate(request: Request, response: Response, body: dict):
+        require_transport(request)
+        if not same_origin(request) or request.headers.get("x-deviceshare-csrf") != "1":
+            raise HTTPException(status_code=403, detail="Same-origin request required")
+        if store.admin_account() is not None:
+            raise HTTPException(status_code=409, detail="Administrator already activated. Please sign in.")
+        code, email, password = body.get("code"), body.get("email"), body.get("password")
+        remember = body.get("remember", True)
+        if not isinstance(code, str) or not isinstance(email, str) or not isinstance(password, str) or not isinstance(remember, bool):
+            raise HTTPException(status_code=422, detail="Code, email, password and remember setting are required")
+        try:
+            normalized = store.activate_admin(code, email, password)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        assign_cookie(request, response, remember=remember)
+        return {"authenticated": True, "activated": True, "email": normalized}
+
+    @app.post("/v1/auth/login")
+    async def account_login(request: Request, response: Response, body: dict):
+        require_transport(request)
+        if not same_origin(request) or request.headers.get("x-deviceshare-csrf") != "1":
+            raise HTTPException(status_code=403, detail="Same-origin request required")
+        email, password = body.get("email"), body.get("password")
+        remember = body.get("remember", False)
+        if not isinstance(email, str) or not isinstance(password, str) or not isinstance(remember, bool):
+            raise HTTPException(status_code=422, detail="Enter your email address and password")
+        matched, reason = store.verify_admin_password(email, password)
+        if not matched:
+            if reason == "rate_limited":
+                raise HTTPException(status_code=429, detail="Too many attempts. Try again in one minute.")
+            raise HTTPException(status_code=401, detail="Incorrect email or password")
+        assign_cookie(request, response, remember=remember)
+        return {"authenticated": True, "email": store.admin_account()["email"]}
+
+    @app.post("/v1/auth/password", dependencies=[Depends(require_api_key)])
+    async def update_password(request: Request, response: Response, body: dict):
+        require_transport(request)
+        current, new = body.get("current_password"), body.get("new_password")
+        if not isinstance(current, str) or not isinstance(new, str):
+            raise HTTPException(status_code=422, detail="Current and new password are required")
+        try:
+            store.change_admin_password(current, new)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        response.delete_cookie(key=session_cookie, path="/v1", samesite="strict")
+        return {"changed": True, "sign_in_required": True}
+
+    @app.post("/v1/auth/reset")
+    async def reset_password(request: Request, response: Response, body: dict):
+        require_transport(request)
+        if not same_origin(request) or request.headers.get("x-deviceshare-csrf") != "1":
+            raise HTTPException(status_code=403, detail="Same-origin request required")
+        email, code, new = body.get("email"), body.get("code"), body.get("new_password")
+        if not all(isinstance(value, str) for value in (email, code, new)):
+            raise HTTPException(status_code=422, detail="Email, host recovery code and new password are required")
+        try:
+            store.reset_admin_password(email, code, new)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        response.delete_cookie(key=session_cookie, path="/v1", samesite="strict")
+        return {"reset": True, "sign_in_required": True}
+
     @app.post("/v1/session")
     async def login(request: Request, response: Response, body: dict):
         if not same_origin(request):
@@ -99,6 +212,8 @@ def create_app(
         # Never send an admin secret over cleartext to a remote server.
         if request.url.scheme != "https" and request.url.hostname not in ("localhost", "127.0.0.1", "::1"):
             raise HTTPException(status_code=400, detail="Use HTTPS for remote dashboard login")
+        if store.admin_account() is not None:
+            raise HTTPException(status_code=410, detail="Use email and password to sign in.")
         supplied = body.get("api_key")
         remember = body.get("remember", False)
         if not isinstance(supplied, str) or len(supplied) > 1024 or not secrets.compare_digest(supplied, api_key):
@@ -341,7 +456,20 @@ def main():
     parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a4")
     parser.add_argument("--api-key-file", default=os.getenv("DEVICESHARE_API_KEY_FILE"),
                         help="Read administrator API key from a private file instead of shell environment")
+    parser.add_argument("--issue-activation-code", action="store_true",
+                        help="Local owner setup: print a 10-minute one-use activation code and exit")
+    parser.add_argument("--issue-recovery-code", action="store_true",
+                        help="Local account recovery: print a 10-minute password-reset code and exit")
     args = parser.parse_args()
+    if args.issue_activation_code or args.issue_recovery_code:
+        database = Store(os.getenv("DEVICESHARE_DB", "./data/deviceshare.db"))
+        purpose = "reset" if args.issue_recovery_code else "activate"
+        try:
+            code = database.issue_activation_code(purpose)
+        except ValueError as exc:
+            parser.error(str(exc))
+        print(f"DeviceShare {purpose} code (expires in 10 minutes): {code}")
+        return
     key = None
     if args.api_key_file:
         file_path = Path(args.api_key_file).expanduser()
