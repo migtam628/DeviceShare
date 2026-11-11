@@ -1,6 +1,7 @@
 {
   "agent_id": "station-01",
   "hub_url": "http://127.0.0.1:8765",
+  "token_file": "./config/agent.token",
   "allow_simulator": true,
   "simulator_dir": "./data/simulator",
   "allowed_printers": [],
