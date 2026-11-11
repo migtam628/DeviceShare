@@ -123,3 +123,38 @@ def test_no_remote_http_password_submission(tmp_path):
                     base_url="http://device.example.com") as client:
         assert client.post("/v1/auth/login", headers=CSRF,
                            json={"email": "x@y.com", "password": "hello"}).status_code == 400
+
+
+def test_cli_setup_and_host_recovery_codes(tmp_path, monkeypatch, capsys):
+    import sys
+    from deviceshare import hub
+
+    dbpath = str(tmp_path / "standalone.sqlite")
+    monkeypatch.setenv("DEVICESHARE_DB", dbpath)
+    monkeypatch.setattr(sys, "argv", ["deviceshare-hub", "--issue-activation-code"])
+    hub.main()
+    output = capsys.readouterr().out
+    assert "expires in 10 minutes" in output
+    code = output.split(": ", 1)[-1].strip()
+    with TestClient(create_app(store_path=dbpath, api_key=HOST_KEY), base_url=BASE) as client:
+        activate(client, code)
+
+    monkeypatch.setattr(sys, "argv", ["deviceshare-hub", "--issue-recovery-code"])
+    hub.main()
+    output = capsys.readouterr().out
+    assert "reset code" in output
+    reset_code = output.split(": ", 1)[-1].strip()
+    with TestClient(create_app(store_path=dbpath, api_key=HOST_KEY), base_url=BASE) as client:
+        response = client.post("/v1/auth/reset", headers=CSRF, json={
+            "code": reset_code, "email": "admin@example.com",
+            "new_password": "Changed by recovery token 123!"
+        })
+        assert response.status_code == 200, response.text
+
+
+def test_legacy_session_cannot_complete_owner_activation(tmp_path):
+    with make_client(tmp_path) as client:
+        assert client.post("/v1/session", json={"api_key": HOST_KEY}).status_code == 200
+        assert client.get("/v1/auth/status").json() == {
+            "activated": False, "authenticated": False, "email": None
+        }
