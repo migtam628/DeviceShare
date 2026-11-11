@@ -2,6 +2,9 @@ name: Build GitHub Release
 
 on:
   push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release.yml"
     tags:
       - "v*-alpha.*"
   workflow_dispatch:
@@ -16,7 +19,7 @@ permissions:
 
 env:
   # Future releases are explicit version tags or an intentional manual dispatch.
-  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2.0-alpha.4' }}
 
 jobs:
   test:
@@ -125,5 +128,5 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "DeviceShare ${RELEASE_TAG}" \
-            --notes "DeviceShare macOS GUI alpha: true SwiftUI DeviceShare.app installed in Applications by PKG and included in DMG. First-run local hub, station pairing, device approvals and per-user LaunchAgent controls. Windows MSI and setup EXE, Debian/Ubuntu DEB, and portable ZIPs are included. Apple app is ad-hoc signed but not Developer-ID signed/notarized. Windows/Linux installers unsigned. Agent/hub services are enabled only by explicit user action. Verify checksums and consult docs/MAC_APP.md. Real-device acceptance remains required." \
+            --notes "DeviceShare alpha.4: redesigned six-section web console and macOS sidebar UI. Select a discovered printer, print PDF test pages, custom text and PDF/PNG documents with bounded copies/media/duplex options through an authenticated agent. New Settings includes revocable remembered browser sign-in (no raw key in browser storage) and optional macOS Keychain key saving. CUPS queue enabled is NOT proof printer hardware is online or paper has printed. Windows PDF printing remains unsupported. Package builds include macOS app PKG/DMG, Windows MSI/setup EXE, Linux DEB and portable ZIPs. Unsigned/unnotarized developer alpha; validate physical hardware before production use." \
             --prerelease
