@@ -2,7 +2,7 @@
 
 **DeviceShare** is a self-hosted peripheral bridge for sending print jobs and communicating with locally attached hardware from websites, POS applications, inventory systems, and remote servers.
 
-**Project status: v0.1.0 alpha source / work in progress.** There is not yet a production-ready installer or stable GitHub Release. Do not connect to untrusted devices, commands, or the open internet.
+**Project status: v0.2.0 development / early alpha.** There is not yet a production-ready installer or stable GitHub Release. Do not connect to untrusted devices, commands, or the open internet.
 
 ## Current implementation
 
@@ -21,7 +21,9 @@
 | Direct HID/USB bulk/USB control transfers | **Not implemented yet** |
 | Windows PDF print rendering | **Not implemented yet** |
 | Printer status monitoring / proof of print | **Not implemented yet** |
-| Device pairing, role-based auth, installers | **Not implemented yet** |
+| Station-specific tokens, rotation, revocation | Implemented in hub API and dashboard |
+| Web management dashboard | Implemented (inventory, jobs, station credentials) |
+| Multi-user RBAC, native OS installers | **Not implemented yet** |
 
 For protocol details, security, and the roadmap, read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -38,30 +40,39 @@ cp config/agent.example.json config/agent.json
 
 On Windows, use `.venv\Scripts\Activate.ps1` and `copy config\agent.example.json config\agent.json`; install `.[dev,windows,usb]` for printer support.
 
-Generate **two different random secrets** and make them available to the hub and agent. For example, in Bash:
+### 1. Start the hub (Terminal 1)
+
+Create a random **administrator API key**. Only the hub needs this secret.
 
 ```bash
 export DEVICESHARE_API_KEY="$(python -c 'import secrets;print(secrets.token_urlsafe(32))')"
-export DEVICESHARE_AGENT_TOKEN="$(python -c 'import secrets;print(secrets.token_urlsafe(32))')"
-```
-
-Save these locally in a password manager or a protected, untracked environment file. Do not commit real tokens. Open two terminals that have access to the same `DEVICESHARE_AGENT_TOKEN`; the hub also needs `DEVICESHARE_API_KEY`.
-
-**Terminal 1: hub**
-
-```bash
 deviceshare-hub
 ```
 
-Hub defaults to `127.0.0.1:8765`, with the API documentation at http://127.0.0.1:8765/docs.
+Hub defaults to http://127.0.0.1:8765. The API reference is at [`/docs`](http://127.0.0.1:8765/docs) and the **DeviceShare Dashboard** is at [`/dashboard`](http://127.0.0.1:8765/dashboard).
 
-**Terminal 2: agent**
+Keep this API key private and available to your API integrations. It is an administrator key that authorizes device jobs, credential creation, and revocation; it must **never** be embedded in a public web page.
+
+### 2. Pair the first station
+
+Use the web dashboard to enter the administrator key and generate a token for `station-01`, **or** create a token through the API from the hub host:
+
+```bash
+curl -sS -X POST -H "X-API-Key: $DEVICESHARE_API_KEY" \
+  http://127.0.0.1:8765/v1/agents/station-01/credential
+```
+
+The response contains a unique station token shown **only once**. Save it privately in `config/agent.token` on the station and secure the file (macOS/Linux: `chmod 600 config/agent.token`). Never commit it or paste it into a support issue. The example configuration includes `"token_file": "./config/agent.token"`. Alternatively, set the station-specific `DEVICESHARE_AGENT_TOKEN` environment variable on the **agent machine**, not on the hub.
+
+### 3. Start the local agent (Terminal 2)
 
 ```bash
 deviceshare-agent --config config/agent.json
 ```
 
-It should connect to the local hub and register the simulated printer. To print a safe test payload (a file, not real paper):
+It connects outbound to the hub and reports discovered devices about every 30 seconds. The dashboard shows online agents, discovered peripherals, and the last 50 jobs. Rotation and revocation disconnect affected agents and deny use of old credentials.
+
+For an end-to-end test, submit a safe simulator payload (a file, not real paper):
 
 ```bash
 python examples/submit_simulated_job.py
@@ -79,7 +90,7 @@ For production integrations, call `POST /v1/jobs` using the JSON schema shown in
 
 ## Remote access
 
-The local agent initiates an **outbound** WebSocket connection to the hub. For deployment across sites, configure the agent `hub_url` to a hub HTTPS URL behind TLS and a secured reverse proxy. The agent will reject insecure non-loopback HTTP URLs by default. The alpha uses shared agent-token authentication and is **not hardened for a public multi-tenant service**.
+The local agent initiates an **outbound** WebSocket connection to the hub. For deployment across sites, configure the agent `hub_url` to a hub HTTPS URL behind TLS and a secured reverse proxy. The agent will reject insecure non-loopback HTTP URLs by default. The default is per-agent pairing with tokens stored as SHA-256 digests on the hub. For compatibility only, you may explicitly enable an older shared token by setting `DEVICESHARE_LEGACY_AGENT_TOKEN` on the hub; paired agents always require their own token. Disable legacy shared tokens in new deployments. **The alpha is not hardened for a public multi-tenant service.**
 
 ## Job delivery semantics
 
@@ -99,7 +110,7 @@ python -m pytest -q
 
 GitHub Actions tests on Windows, macOS, and Linux. On pushes of version tags like `v0.1.0-alpha.1`, the release workflow attempts to build single-file agent and hub binaries, and publish the results on [GitHub Releases](https://github.com/migtam628/DeviceShare/releases). **These build pipelines are not yet verified on all OSs; do not assume a tagged release succeeded until Actions passes.**
 
-Current priority: validate continuous integration, add device pairing, then implement restricted HID/USB plugins and actual user-facing desktop setup.
+Current priority: validate the updated CI suite, add scoped API credentials and OS service installation, implement restricted HID/USB plugins, and verify downloadable desktop builds.
 
 ## Intended integrations
 
@@ -110,6 +121,6 @@ Current priority: validate continuous integration, add device pairing, then impl
 
 ## Security
 
-DeviceShare never exposes an arbitrary remote shell. The current API grants holders of its API key permission to submit jobs to **locally approved devices**, so protect that key carefully. Do not use serial or print jobs to drive dangerous equipment without independent safety controls.
+DeviceShare never exposes an arbitrary remote shell. The current administrator API key grants holders permission to provision agents and submit jobs to **locally approved devices**, so protect that key carefully. Do not use serial or print jobs to drive dangerous equipment without independent safety controls.
 
 **Licensing:** No software license has been selected yet. Public source code does not by itself grant broad reuse permissions.
