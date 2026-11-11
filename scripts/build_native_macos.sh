@@ -40,6 +40,7 @@ install -m 0755 "$hub" "$app/Contents/MacOS/deviceshare-hub"
 codesign --force --deep --sign - "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
 test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")" = "DeviceShare"
+test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$app/Contents/Info.plist")" = "3"
 file "$app/Contents/MacOS/DeviceShare"
 "$app/Contents/MacOS/deviceshare-agent" --version
 "$app/Contents/MacOS/deviceshare-hub" --version
@@ -49,6 +50,7 @@ ln -s /Applications/DeviceShare.app/Contents/MacOS/deviceshare-agent "$stage/usr
 ln -s /Applications/DeviceShare.app/Contents/MacOS/deviceshare-hub "$stage/usr/local/bin/deviceshare-hub"
 install -m 0644 config/agent.example.json "$stage/usr/local/share/deviceshare/agent.example.json"
 install -m 0644 docs/INSTALL_NATIVE.md "$stage/usr/local/share/doc/deviceshare/INSTALL_NATIVE.md"
+install -m 0644 docs/MAC_APP.md "$stage/usr/local/share/doc/deviceshare/MAC_APP.md"
 install -m 0644 SECURITY.md "$stage/usr/local/share/doc/deviceshare/SECURITY.md"
 
 mkdir -p release-assets
@@ -70,6 +72,7 @@ mkdir -p "$folder"
 ditto "$app" "$folder/DeviceShare.app"
 ditto "$pkg" "$folder/DeviceShare-$suffix.pkg"
 ditto docs/INSTALL_NATIVE.md "$folder/INSTALL_NATIVE.md"
+ditto docs/MAC_APP.md "$folder/MAC_APP.md"
 ln -s /Applications "$folder/Applications"
 hdiutil create -quiet -srcfolder "$folder" -volname "DeviceShare" -format UDZO -ov "$dmg"
 hdiutil verify -quiet "$dmg"
