@@ -18,12 +18,14 @@
 | Windows RAW printer spooler | Implemented; requires optional pywin32 |
 | Serial ports: enumerate, write, receive | Implemented; requires explicit port allowlist |
 | USB hardware: VID/PID discovery | Read-only optional pyusb |
-| Direct HID/USB bulk/USB control transfers | **Not implemented yet** |
+| HID input reports | Implemented: read-only, exact local allowlist; requires `hidapi` |
+| HID output/feature, USB bulk/control | **Not implemented yet** |
 | Windows PDF print rendering | **Not implemented yet** |
 | Printer status monitoring / proof of print | **Not implemented yet** |
 | Station-specific tokens, rotation, revocation | Implemented in hub API and dashboard |
 | Web management dashboard | Implemented (inventory, jobs, station credentials) |
-| Multi-user RBAC, native OS installers | **Not implemented yet** |
+| Per-user agent auto-start | Linux systemd, macOS launchd, Windows Scheduled Task scripts |
+| Multi-user RBAC, signed native installers | **Not implemented yet** |
 
 For protocol details, security, and the roadmap, read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -34,11 +36,11 @@ git clone https://github.com/migtam628/DeviceShare.git
 cd DeviceShare
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e ".[dev,usb]"
+python -m pip install -e ".[dev,usb,hid]"
 cp config/agent.example.json config/agent.json
 ```
 
-On Windows, use `.venv\Scripts\Activate.ps1` and `copy config\agent.example.json config\agent.json`; install `.[dev,windows,usb]` for printer support.
+On Windows, use `.venv\Scripts\Activate.ps1` and `copy config\agent.example.json config\agent.json`; install `.[dev,windows,usb,hid]` for printer support.
 
 ### 1. Start the hub (Terminal 1)
 
@@ -84,7 +86,7 @@ Check `data/simulator/` for the emitted `.bin` file, and inspect the job ledger:
 curl -H "X-API-Key: $DEVICESHARE_API_KEY" http://127.0.0.1:8765/v1/jobs
 ```
 
-For production integrations, call `POST /v1/jobs` using the JSON schema shown in `/docs`. Operations are `simulate`, `print_raw`, `print_document`, and `serial_exchange`. All payloads are base64-encoded and limited to 1 MiB. For real devices, add **specific** names/ports to the agent's `allowed_printers` / `allowed_serial_ports` configuration. The hub alone cannot override local device approvals.
+For production integrations, call `POST /v1/jobs` using the JSON schema shown in `/docs`. Operations are `simulate`, `print_raw`, `print_document`, `serial_exchange`, and read-only `hid_read`. All payloads are base64-encoded and limited to 1 MiB. For real devices, add **specific** names/ports to the agent's `allowed_printers`, `allowed_serial_ports`, or `allowed_hid_devices` configuration. The hub alone cannot override local device approvals.
 
 **Serial loopback test:** set `"allowed_serial_ports": ["loop://"]` in the agent config; then submit a `serial_exchange` job to `serial:loop://` with `"options": {"baudrate": 9600, "read_size": 5}` and base64 data `aGVsbG8=`. The returned base64 response should decode to `hello`.
 
@@ -110,7 +112,7 @@ python -m pytest -q
 
 GitHub Actions tests on Windows, macOS, and Linux. On pushes of version tags like `v0.1.0-alpha.1`, the release workflow attempts to build single-file agent and hub binaries, and publish the results on [GitHub Releases](https://github.com/migtam628/DeviceShare/releases). **These build pipelines are not yet verified on all OSs; do not assume a tagged release succeeded until Actions passes.**
 
-Current priority: validate the updated CI suite, add scoped API credentials and OS service installation, implement restricted HID/USB plugins, and verify downloadable desktop builds.
+Current priority: verify portable preview builds on all four OS targets, publish a tested alpha prerelease, test real printers/HID readers, then add scoped API permissions and device plugins.
 
 ## Intended integrations
 
