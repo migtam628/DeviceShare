@@ -1,0 +1,53 @@
+"""Shared protocol and job input validation."""
+import base64
+import binascii
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field, model_validator
+
+MAX_PAYLOAD_BYTES = 1024 * 1024
+
+class Operation(str, Enum):
+    PRINT_RAW = "print_raw"
+    PRINT_DOCUMENT = "print_document"
+    SERIAL_EXCHANGE = "serial_exchange"
+    SIMULATE = "simulate"
+
+class JobCreate(BaseModel):
+    agent_id: str = Field(min_length=1, max_length=80, pattern=r"^[a-zA-Z0-9_.-]+$")
+    device_id: str = Field(min_length=1, max_length=300)
+    operation: Operation
+    data_base64: str = Field(max_length=1_500_000)
+    options: dict[str, Any] = Field(default_factory=dict)
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=120)
+
+    @model_validator(mode="after")
+    def check_payload(self):
+        try:
+            raw = base64.b64decode(self.data_base64, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise ValueError("data_base64 must be valid base64") from exc
+        if len(raw) > MAX_PAYLOAD_BYTES:
+            raise ValueError("payload exceeds 1 MiB")
+        expected = {
+            Operation.PRINT_RAW: "printer:",
+            Operation.PRINT_DOCUMENT: "printer:",
+            Operation.SERIAL_EXCHANGE: "serial:",
+            Operation.SIMULATE: "sim:",
+        }[self.operation]
+        if not self.device_id.startswith(expected):
+            raise ValueError(f"device_id must start with {expected}")
+        if self.operation == Operation.PRINT_DOCUMENT:
+            if self.options.get("mime_type") not in ("application/pdf", "image/png"):
+                raise ValueError("print_document requires mime_type application/pdf or image/png")
+        if self.operation == Operation.SERIAL_EXCHANGE:
+            baud = self.options.get("baudrate", 9600)
+            read_size = self.options.get("read_size", 0)
+            if type(baud) is not int or baud not in (300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400):
+                raise ValueError("unsupported baudrate")
+            if type(read_size) is not int or not 0 <= read_size <= 4096:
+                raise ValueError("read_size must be 0..4096")
+        if self.operation == Operation.SIMULATE and self.device_id != "sim:printer":
+            raise ValueError("only sim:printer is implemented")
+        return self
