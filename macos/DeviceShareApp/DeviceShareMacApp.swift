@@ -170,7 +170,7 @@ struct DeviceShareHome: View {
                     HStack(spacing: 8) {
                         setupStatus("Hub", done: controller.hubHealth == "Hub responding")
                         setupStatus("Account", done: controller.adminActivated)
-                        setupStatus("Station", done: controller.hasToken)
+                        setupStatus("Station", done: controller.agentConnected)
                         setupStatus("Printer", done: controller.selectedPrinter != nil)
                     }
                 }
@@ -751,7 +751,9 @@ struct DeviceShareHome: View {
                                 .disabled(!controller.hasToken)
                             Button("Stop") { controller.stopAgent() }
                         }
-                        Text("Agent startup is per-user using launchd. It can run while you are logged in and reconnects to the hub after disconnections.")
+                        Text(controller.agentConnectivityNote)
+                            .font(.caption).foregroundStyle(controller.agentConnected ? Color.green : Color.secondary)
+                        Text("The status above checks the Hub's live station connection, not just whether launchd has registered a service. Restart the Agent after credential or printer-approval changes.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -773,7 +775,8 @@ struct DeviceShareHome: View {
                         }
                     }
                 }
-                Text("This view checks launchd registration, not proof of an active WebSocket connection. Verify live agent status and actual print output in the hub dashboard.")
+                Text("The Agent connection status is checked against the Hub. Real printer output must still be confirmed physically.")
+                    .font(.caption).foregroundStyle(.secondary)
                     .font(.caption).foregroundStyle(.secondary)
             }
             .padding(12)
