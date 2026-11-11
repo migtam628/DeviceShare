@@ -245,16 +245,26 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
 const el=id=>document.getElementById(id);
 const page=location.pathname.split("/").filter(Boolean).pop()||"dashboard";
 const pages={dashboard:"Overview",printers:"Printers",studio:"Print Studio",jobs:"Activity",devices:"Devices & stations",settings:"Settings"};
-let connected=false,agents=[],jobs=[],printers=[],chosen=localStorage.getItem("deviceshare_printer")||"",lastToken="",busy=false;
+let connected=false,activated=false,recoveryMode=false,accountEmail="",agents=[],jobs=[],printers=[],chosen=localStorage.getItem("deviceshare_printer")||"",lastToken="",busy=false;
 const text=(id,value)=>{el(id).textContent=String(value)};
 const make=(tag,cls,value)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(value!==undefined)n.textContent=String(value);return n};
 const notify=(value,bad=false)=>{const t=el("toast");t.hidden=false;t.textContent=value;t.className="toast"+(bad?" bad":"")};
 const badge=(value,kind)=>make("span","badge "+(kind||""),value);
 const statusLabel=d=>d.state==="disabled"?"Queue disabled":d.state==="enabled"?"Queue enabled (hardware unverified)":"Availability unknown";
+function showAuthGate(){
+ el("authGate").hidden=connected;
+ el("workspaceContent").hidden=!connected;
+ el("authActivate").hidden=activated||recoveryMode;
+ el("authLogin").hidden=!activated||recoveryMode;
+ el("authRecovery").hidden=!recoveryMode;
+ text("authWelcome",activated?"Your workspace. Your devices.":"Welcome to DeviceShare.");
+}
 function authState(){
- const b=el("authBadge");b.textContent=connected?"Connected":"Signed out";b.className="badge "+(connected?"ok":"warn");
+ const b=el("authBadge");b.textContent=connected?"Signed in":"Sign in required";b.className="badge "+(connected?"ok":"warn");
  text("sessionBadge",connected?"Connected":"Not connected");el("sessionBadge").className=b.className;
+ text("accountEmail",connected?(accountEmail||"Administrator"):"—");
  el("signOut").disabled=!connected;el("signOutAll").disabled=!connected;
+ showAuthGate();
 }
 function route(){
  el("topTitle").textContent=pages[page]||pages.dashboard;
@@ -263,7 +273,7 @@ function route(){
  el("hubAddress").textContent=location.origin;
 }
 async function api(path,options={}){
- if(!connected)throw new Error("Connect in Settings with your Hub administrator key.");
+ if(!connected)throw new Error("Sign in with your email and password before using this action.");
  const r=await fetch(path,{...options,credentials:"same-origin",cache:"no-store",
    headers:{"X-DeviceShare-CSRF":"1",...(options.body?{"Content-Type":"application/json"}:{})}});
  if(!r.ok){let detail="HTTP "+r.status;try{const obj=await r.json();if(typeof obj.detail==="string")detail=obj.detail}catch(e){}
@@ -274,6 +284,19 @@ function renderCounts(){
  const online=agents.filter(a=>a.online);
  text("countAgents",online.length);text("countPrinters",printers.length);
  text("countJobs",jobs.filter(j=>j.operation==="print_document"||j.operation==="print_raw").length);
+ const checklist=[
+   {label:"Administrator activated",detail:"Email/password account protects dashboard access",done:activated,url:"/settings"},
+   {label:"Station connected",detail:"Pair and start your agent from DeviceShare.app",done:online.length>0,url:"/devices"},
+   {label:"Printer discovered",detail:"Scan local queues, approve one and select it",done:printers.length>0,url:"/printers"},
+   {label:"First test print submitted",detail:"Submit a test page and confirm physical output",done:jobs.some(j=>j.operation==="print_document"),url:"/studio"},
+ ];
+ const progress=el("setupProgress");progress.replaceChildren();
+ checklist.forEach((step,i)=>{
+   const row=make("a","progress-step"+(step.done?" done":""));row.href=step.url;
+   const number=make("span","progress-number",step.done?"✓":i+1);
+   const details=make("div");details.append(make("strong",null,step.label),make("p","sub",step.detail));
+   row.append(number,details);progress.append(row);
+ });
  text("agentBadge",online.length+" agent"+(online.length===1?"":"s")+" online");
  text("printerCountLabel",printers.length+" printer"+(printers.length===1?"":"s"));
  const health=el("overviewHealth");
@@ -393,29 +416,79 @@ async function printAction(kind){
  }finally{busy=false;renderStudio()}
 }
 const guarded=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(e=>notify(e.message,true));
+async function postAccount(path,body){
+ const response=await fetch(path,{
+   method:"POST",credentials:"same-origin",cache:"no-store",
+   headers:{"Content-Type":"application/json","X-DeviceShare-CSRF":"1"},
+   body:JSON.stringify(body)
+ });
+ if(!response.ok){
+   let message="Request failed (HTTP "+response.status+").";
+   try{const payload=await response.json();if(typeof payload.detail==="string")message=payload.detail}catch(e){}
+   throw new Error(message);
+ }
+ return response.json();
+}
 async function signIn(){
- const field=el("apiKey"),key=field.value.trim();if(!key)throw new Error("Enter the administrator API key.");
- const r=await fetch("/v1/session",{method:"POST",credentials:"same-origin",cache:"no-store",
-  headers:{"Content-Type":"application/json","X-DeviceShare-CSRF":"1"},
-  body:JSON.stringify({api_key:key,remember:el("rememberBrowser").checked})});
- field.value="";
- if(!r.ok)throw new Error("Could not sign in. Verify Hub key and HTTPS for remote access (HTTP "+r.status+").");
- connected=true;authState();await refresh();notify("Connected. No raw API key was stored in the browser.");
+ const email=el("loginEmail").value.trim(),password=el("loginPassword").value;
+ if(!email||!password)throw new Error("Enter your email and password.");
+ const result=await postAccount("/v1/auth/login",{email,password,remember:el("rememberBrowser").checked});
+ el("loginPassword").value="";connected=true;activated=true;accountEmail=result.email;
+ authState();await refresh();notify("Welcome back. Your saved login session is active.");
+}
+async function activateAccount(){
+ const email=el("activationEmail").value.trim(),password=el("activationPassword").value;
+ if(password!==el("activationConfirm").value)throw new Error("Passwords do not match.");
+ if(password.length<12)throw new Error("Use a password with at least 12 characters.");
+ const code=el("activationCode").value.trim();
+ if(!code)throw new Error("Get the one-time activation code from DeviceShare.app or the host CLI.");
+ const result=await postAccount("/v1/auth/activate",{email,password,code,remember:true});
+ ["activationPassword","activationConfirm","activationCode"].forEach(id=>el(id).value="");
+ activated=true;connected=true;accountEmail=result.email;recoveryMode=false;
+ authState();await refresh();notify("Account activated. Next, pair your station and select a printer.");
+}
+async function recoverAccount(){
+ const password=el("recoveryPassword").value;
+ if(password.length<12)throw new Error("Use a password with at least 12 characters.");
+ await postAccount("/v1/auth/reset",{
+  email:el("recoveryEmail").value.trim(),
+  code:el("recoveryCode").value.trim(),
+  new_password:password
+ });
+ el("recoveryPassword").value="";el("recoveryCode").value="";
+ recoveryMode=false;connected=false;authState();
+ notify("Password reset. Sign in with your new password.");
 }
 async function restore(){
  try{
-  const r=await fetch("/v1/session",{credentials:"same-origin",cache:"no-store"});
-  const state=await r.json();connected=state.authenticated===true;authState();
-  if(connected){await refresh();notify("Saved browser session restored.");}
-  else if(page!=="settings")notify("Sign in under Settings to load your stations and printers.");
- }catch(e){notify("Unable to restore session: "+e.message,true)}
+  const response=await fetch("/v1/auth/status",{credentials:"same-origin",cache:"no-store"});
+  if(!response.ok)throw new Error("Hub account status unavailable");
+  const state=await response.json();
+  activated=state.activated===true;connected=state.authenticated===true;
+  accountEmail=state.email||"";authState();
+  if(connected){await refresh();notify("Welcome back. Your session was securely restored.");}
+  else if(!activated)notify("This Hub needs one-time activation. Use DeviceShare.app or a local setup code.");
+ }catch(e){notify("Cannot check account status: "+e.message,true)}
+}
+async function changePassword(){
+ const newPassword=el("newPassword").value;
+ if(newPassword!==el("confirmPassword").value)throw new Error("New passwords do not match.");
+ if(newPassword.length<12)throw new Error("Use a password with at least 12 characters.");
+ const result=await api("/v1/auth/password",{method:"POST",body:JSON.stringify({
+   current_password:el("currentPassword").value,new_password:newPassword
+ })});
+ if(result.changed){
+   ["currentPassword","newPassword","confirmPassword"].forEach(id=>el(id).value="");
+   connected=false;accountEmail="";authState();
+   notify("Password changed. All sessions were revoked; sign in again.");
+ }
 }
 async function logout(all){
  if(all&&!confirm("Revoke all saved browser sessions? You will need to sign in again everywhere."))return;
  const r=await fetch(all?"/v1/sessions":"/v1/session",{
   method:"DELETE",credentials:"same-origin",headers:{"X-DeviceShare-CSRF":"1"},cache:"no-store"});
  if(!r.ok)throw new Error("Sign-out failed (HTTP "+r.status+").");
- connected=false;agents=[];jobs=[];printers=[];lastToken="";text("newToken","No token issued this session.");el("copyToken").disabled=true;
+ connected=false;accountEmail="";agents=[];jobs=[];printers=[];lastToken="";text("newToken","No token issued this session.");el("copyToken").disabled=true;
  authState();renderPrinters();renderStudio();renderCounts();renderJobs();renderDevices();
  notify(all?"All remembered browser sessions revoked.":"Signed out this browser.");
 }
@@ -443,7 +516,12 @@ el("customText").addEventListener("input",()=>{text("textPreview",el("customText
 el("testPrint").addEventListener("click",guarded(()=>printAction("test")));
 el("printText").addEventListener("click",guarded(()=>printAction("text")));
 el("printDocument").addEventListener("click",guarded(()=>printAction("file")));
-el("signIn").addEventListener("click",guarded(signIn));
+el("loginForm").addEventListener("submit",event=>{event.preventDefault();guarded(signIn)()});
+el("activateForm").addEventListener("submit",event=>{event.preventDefault();guarded(activateAccount)()});
+el("recoveryForm").addEventListener("submit",event=>{event.preventDefault();guarded(recoverAccount)()});
+el("changePasswordForm").addEventListener("submit",event=>{event.preventDefault();guarded(changePassword)()});
+el("forgotPassword").addEventListener("click",()=>{recoveryMode=true;showAuthGate()});
+el("backToSignIn").addEventListener("click",()=>{recoveryMode=false;showAuthGate()});
 el("signOut").addEventListener("click",guarded(()=>logout(false)));
 el("signOutAll").addEventListener("click",guarded(()=>logout(true)));
 el("pairButton").addEventListener("click",guarded(pair));
