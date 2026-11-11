@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>DeviceShare Console</title>
+<style>
+:root{color-scheme:dark;--bg:#0b111d;--surface:#111b2b;--card:#172337;--card2:#1b2b42;--line:#2d3d53;--text:#edf4fd;--muted:#9caec5;--accent:#66ded0;--blue:#8aa7ff;--warn:#f4bb73;--danger:#ff9aa3;--radius:15px}
+*{box-sizing:border-box}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif}
+a{color:inherit;text-decoration:none}
+.shell{display:grid;grid-template-columns:234px minmax(0,1fr);min-height:100vh}
+.sidebar{background:#101a29;border-right:1px solid var(--line);padding:24px 16px;display:flex;flex-direction:column;gap:28px}
+.brand{display:flex;align-items:center;gap:11px;padding:2px 8px}
+.logo{display:grid;place-items:center;background:var(--accent);color:#0b1721;border-radius:11px;width:39px;height:39px;font-size:23px;font-weight:900}
+.brand strong{font-size:18px;letter-spacing:-.6px}.brand span{display:block;font-size:11px;color:var(--muted)}
+.navheading{padding:0 12px;color:var(--muted);font-size:10px;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px}
+.nav-group{display:grid;gap:4px}.nav-item{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;color:#b4c3d6;font-weight:590}
+.nav-item .nav-icon{width:22px;text-align:center;color:#7f95af;font-size:15px}
+.nav-item:hover{background:#1a2940;color:white}.nav-item.active{color:var(--accent);background:#203348}.nav-item.active .nav-icon{color:var(--accent)}
+.sidebar-footer{margin-top:auto;padding:13px;background:#16253a;border:1px solid var(--line);border-radius:11px;color:var(--muted);font-size:12px}
+.sidebar-footer strong{color:var(--text)}
+.workspace{min-width:0}.topbar{height:74px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 34px}
+.topbar h1{font-size:17px;margin:0}.topbar .minor{font-size:12px;color:var(--muted)}
+.content{max-width:1460px;margin:auto;padding:30px 34px 50px}.page-intro{margin-bottom:25px;display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+h2{font-size:27px;letter-spacing:-.9px;margin:0 0 6px}h3{font-size:17px;letter-spacing:-.3px;margin:0 0 8px}h4{font-size:13px;margin:0 0 5px}
+p{margin:0}.sub{color:var(--muted);font-size:13px;line-height:1.65}.small{font-size:12px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.grid{display:grid;gap:18px;grid-template-columns:repeat(3,minmax(0,1fr))}.wide{grid-column:span 2}.full{grid-column:1/-1}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:22px;min-width:0}
+.card.soft{background:var(--card)}.stat-label{color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:1.1px}
+.stat-num{font-size:36px;font-weight:750;letter-spacing:-1.7px;margin:8px 0 4px}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}.stack{display:grid;gap:13px}
+.badge{border-radius:30px;border:1px solid var(--line);padding:4px 10px;color:var(--muted);font-size:11px;font-weight:660;display:inline-block}
+.badge.ok{color:var(--accent);border-color:#2c8276}.badge.warn{color:var(--warn);border-color:#735a36}.badge.bad{color:var(--danger);border-color:#7d4952}
+button,input,select,textarea{font:inherit}
+button{background:var(--accent);color:#07161c;border:1px solid transparent;font-weight:700;border-radius:9px;padding:10px 15px;cursor:pointer}
+button:hover:not(:disabled){filter:brightness(1.07)}button:disabled{opacity:.48;cursor:not-allowed}
+button.secondary,.btn-secondary{background:var(--card2);border:1px solid var(--line);color:var(--text)}button.danger{background:transparent;color:var(--danger);border:1px solid #84505b}
+input,select,textarea{width:100%;border:1px solid var(--line);background:#0e1828;color:var(--text);border-radius:9px;padding:11px 12px;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}textarea{resize:vertical;min-height:140px}
+input[type=checkbox]{width:auto}input[type=file]{cursor:pointer}
+label{display:block;font-size:12px;color:#afc2d8;font-weight:630;margin-bottom:7px}
+fieldset{border:0;margin:0;padding:0}.form-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.form-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.callout{background:#1a2940;border:1px solid #38536d;border-radius:10px;padding:13px 15px;color:#c6d7ea;font-size:13px;line-height:1.6}
+.callout.warn{background:#2b251e;border-color:#66543d;color:#ffe0b2}
+.table-scroll{overflow:auto}table{width:100%;border-collapse:collapse;text-align:left;font-size:13px}
+th{text-transform:uppercase;letter-spacing:.8px;font-size:10px;color:var(--muted);font-weight:650}
+td,th{padding:13px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;color:var(--muted);text-align:center}
+.station{padding:13px 0;border-bottom:1px solid var(--line)}.station:last-child{border-bottom:0}
+.printer-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:14px}
+.printer-card{min-height:151px;background:var(--card);border:1px solid var(--line);color:var(--text);border-radius:13px;padding:17px;text-align:left;width:100%;display:grid;align-content:space-between;gap:13px;font-weight:400}
+.printer-card.selected{outline:2px solid var(--accent);border-color:var(--accent)}.printer-card:hover{background:#223449}
+.printer-icon{font-size:23px;color:var(--accent);width:43px;height:43px;border-radius:12px;background:#244040;display:grid;place-items:center}
+.selected-info{padding:15px;background:#1b2b42;border:1px solid var(--line);border-radius:10px}
+.section-header{display:flex;gap:12px;justify-content:space-between;align-items:center;margin-bottom:18px}
+.split{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(290px,1fr);gap:18px}
+.divider{border-top:1px solid var(--line);margin:17px 0}
+.preview{min-height:170px;background:#f8f8f5;color:#1a2530;border-radius:7px;max-width:400px;padding:20px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.7;border:8px solid #d9dfe5}
+.footer-note{margin:24px 2px 0;color:var(--muted);font-size:12px}
+.toast{border:1px solid var(--line);padding:12px 15px;border-radius:10px;background:#13243a;color:#bcd5ef;margin-bottom:18px}
+.toast.bad{color:#ffc8d0;border-color:#80505e}.quicklink{display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:11px;padding:16px 18px}
+.quicklink:hover{border-color:var(--accent)}.link{color:var(--accent);text-decoration:underline}
+.settings-item{padding:17px 0;border-bottom:1px solid var(--line)}.settings-item:last-child{border-bottom:0}
+@media(max-width:1050px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.wide{grid-column:span 2}.split{grid-template-columns:1fr}}
+@media(max-width:750px){.shell{grid-template-columns:1fr}.sidebar{padding:10px;gap:10px}.nav-group{display:flex;overflow-x:auto}.navheading,.sidebar-footer{display:none}.brand{padding:0}.topbar{height:auto;padding:16px}.content{padding:22px 16px}.grid,.form-grid,.form-grid.two{grid-template-columns:1fr}.wide{grid-column:span 1}.page-intro{display:block}.page-intro button{margin-top:10px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+<div class="brand"><div class="logo">D</div><div><strong>DeviceShare</strong><span>Peripheral control center</span></div></div>
+<div><div class="navheading">Workspace</div><nav class="nav-group">
+<a class="nav-item" href="/dashboard" data-nav="dashboard"><span class="nav-icon">◫</span> Overview</a>
+<a class="nav-item" href="/printers" data-nav="printers"><span class="nav-icon">▣</span> Printers</a>
+<a class="nav-item" href="/studio" data-nav="studio"><span class="nav-icon">✦</span> Print Studio</a>
+<a class="nav-item" href="/jobs" data-nav="jobs"><span class="nav-icon">≡</span> Activity</a>
+</nav></div>
+<div><div class="navheading">System</div><nav class="nav-group">
+<a class="nav-item" href="/devices" data-nav="devices"><span class="nav-icon">⬡</span> Devices & stations</a>
+<a class="nav-item" href="/settings" data-nav="settings"><span class="nav-icon">⚙</span> Settings</a>
+</nav></div>
+<div class="sidebar-footer"><strong>DeviceShare alpha</strong><p>Hardware permissions remain local. Never assume a queued print job means paper printed.</p></div>
+</aside>
+<div class="workspace">
+<header class="topbar"><div><h1 id="topTitle">Overview</h1><div class="minor">Local hub · print management</div></div><div class="row"><span class="badge" id="authBadge">Signed out</span><span class="badge" id="agentBadge">0 agents online</span><button class="secondary" id="headerRefresh">Refresh</button></div></header>
+<main class="content">
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<section data-screen="dashboard">
+<div class="page-intro"><div><h2>Good to see you.</h2><p class="sub">A clear view of your printing stations, queues and recent activity.</p></div><a class="badge" href="/studio">Open Print Studio</a></div>
+<div class="grid">
+<div class="card soft"><div class="stat-label">Connected stations</div><div id="countAgents" class="stat-num">—</div><p class="sub">Active DeviceShare agents</p></div>
+<div class="card soft"><div class="stat-label">Discovered printers</div><div id="countPrinters" class="stat-num">—</div><p class="sub">Across connected stations</p></div>
+<div class="card soft"><div class="stat-label">Recent print jobs</div><div id="countJobs" class="stat-num">—</div><p class="sub">Most recent 100 jobs</p></div>
+<div class="card wide"><div class="section-header"><h3>Stations</h3><a class="link small" href="/devices">Manage stations</a></div><div id="overviewStations"><div class="empty">Connect to view stations.</div></div></div>
+<div class="card"><h3>Quick actions</h3><div class="stack"><a class="quicklink" href="/printers">Select a printer <span>›</span></a><a class="quicklink" href="/studio">Print a test page <span>›</span></a><a class="quicklink" href="/jobs">Review print activity <span>›</span></a></div></div>
+<div class="card full"><h3>Printing health</h3><p id="overviewHealth" class="callout">Sign in to review your printer queues.</p></div>
+</div>
+</section>
+
+<section data-screen="printers" hidden>
+<div class="page-intro"><div><h2>Printers</h2><p class="sub">Choose an installed queue on a connected station. Queue status is not proof the physical printer is online.</p></div><button class="secondary" id="scanPrinters">Refresh inventory</button></div>
+<div class="card" style="margin-bottom:18px"><div class="section-header"><h3>Available printers</h3><span id="printerCountLabel" class="badge">0 printers</span></div><div id="printerCards" class="printer-grid"><div class="empty">No printers loaded yet.</div></div></div>
+<div class="split"><section class="card"><h3>Selected printer</h3><div class="selected-info" id="printerDetail">Select a printer above to see its station and queue status.</div><div class="divider"></div><button id="goToStudio">Use this printer in Print Studio</button></section><section class="card"><h3>Printer setup notes</h3><p class="sub">Printers are discovered from the station's operating system and must also be explicitly approved under the Mac app's <strong>Local devices</strong> tab. A disabled queue cannot receive a DeviceShare test print.</p><div class="callout warn" style="margin-top:15px">If macOS shows “Printer is offline,” fix the physical connection or printer queue before sending more jobs. Do not repeatedly retry the same print.</div></section></div>
+</section>
+
+<section data-screen="studio" hidden>
+<div class="page-intro"><div><h2>Print Studio</h2><p class="sub">Send a test page, custom text, or an uploaded PDF/PNG to the printer you select.</p></div><span class="badge warn">Physical output must be checked</span></div>
+<div class="split">
+<div class="stack">
+<section class="card stack">
+<h3>1. Destination</h3>
+<div><label for="studioPrinter">Printer</label><select id="studioPrinter"><option value="">Select a connected printer…</option></select></div>
+<div id="studioPrinterStatus" class="callout">Select a printer from the list. No default printer is assumed.</div>
+<h3 style="margin-top:8px">2. Print options</h3>
+<div class="form-grid">
+<div><label for="printCopies">Copies</label><select id="printCopies"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
+<div><label for="printMedia">Paper size</label><select id="printMedia"><option value="Letter">US Letter</option><option value="A4">A4</option></select></div>
+<div><label for="printSides">Sides</label><select id="printSides"><option value="one-sided">Single-sided</option><option value="two-sided-long-edge">Double-sided</option></select></div>
+</div>
+</section>
+<section class="card stack">
+<h3>3. Print action</h3>
+<div class="callout">Test page prints a one-page PDF with station name, printer name, date, grayscale bars, and an alignment border.</div>
+<button id="testPrint">Print test page</button>
+<div class="divider"></div>
+<div><label for="customTitle">Custom document title</label><input id="customTitle" maxlength="80" value="My custom print"></div>
+<div><label for="customText">Custom text</label><textarea id="customText" maxlength="12000" placeholder="Type the message, notes, packing slip or content to print…"></textarea></div>
+<button id="printText">Print custom text</button>
+<div class="divider"></div>
+<div><label for="printFile">PDF or PNG document (up to 1 MiB)</label><input type="file" id="printFile" accept=".pdf,.png,application/pdf,image/png"></div>
+<button id="printDocument" class="secondary">Print uploaded document</button>
+</section>
+</div>
+<div class="stack">
+<section class="card"><h3>Preview</h3><p class="sub" style="margin-bottom:14px">Approximate text preview, not a pixel-perfect proof of the rendered PDF.</p><div class="preview" id="textPreview">Your custom text appears here before printing.</div></section>
+<section class="card"><h3>Print confirmation</h3><p class="sub">A print request is delivered to the selected station. DeviceShare logs when the operating system accepts the job—not when paper comes out. The test and custom print buttons never auto-retry uncertain jobs.</p><p id="lastPrintJob" class="callout" style="margin-top:15px">No new print job submitted in this session.</p><a href="/jobs" class="link small" style="display:inline-block;margin-top:13px">View activity and status</a></section>
+</div>
+</div>
+</section>
+
+<section data-screen="jobs" hidden>
+<div class="page-intro"><div><h2>Activity</h2><p class="sub">Submitted operations, queue results, and failure details. Unknown delivery states require manual reconciliation.</p></div><button class="secondary" id="refreshJobs">Refresh jobs</button></div>
+<div class="card"><div class="section-header"><h3>Recent jobs</h3><span class="badge">Latest 100</span></div><div class="table-scroll"><table><thead><tr><th>Job</th><th>Station</th><th>Printer / device</th><th>Operation</th><th>Status</th><th>Result</th></tr></thead><tbody id="jobsTable"><tr><td colspan="6" class="empty">No job history loaded.</td></tr></tbody></table></div></div>
+</section>
+
+<section data-screen="devices" hidden>
+<div class="page-intro"><div><h2>Devices & stations</h2><p class="sub">Monitor attached hardware and manage station credentials independently of printing.</p></div><button class="secondary" id="refreshDevices">Refresh devices</button></div>
+<div class="grid">
+<div class="card wide"><h3>Stations</h3><div id="stationTable" class="table-scroll"><div class="empty">No stations loaded.</div></div><div class="divider"></div><h3>Discovered peripherals</h3><div id="deviceTable" class="table-scroll"><div class="empty">No devices loaded.</div></div></div>
+<div class="card stack"><h3>Agent credentials</h3><p class="sub">Generate or rotate one station token. Rotation disconnects its current agent; copy the token to that station immediately.</p><div><label for="pairID">Station ID</label><input id="pairID" maxlength="80" pattern="[a-zA-Z0-9_.-]+" placeholder="station-01"></div><button id="pairButton">Generate / rotate token</button>
+<div><label>One-time token</label><p id="newToken" class="mono small" style="overflow-wrap:anywhere">No token issued this session.</p></div><button id="copyToken" class="secondary" disabled>Copy one-time token</button>
+<div class="divider"></div><div><label for="revokeID">Station to revoke</label><input id="revokeID" maxlength="80" pattern="[a-zA-Z0-9_.-]+" placeholder="station-01"></div><button id="revokeButton" class="danger">Revoke credential</button></div>
+</div>
+</section>
+
+<section data-screen="settings" hidden>
+<div class="page-intro"><div><h2>Settings</h2><p class="sub">Authentication, trusted browsers and dashboard preferences. Administrator keys never enter browser storage.</p></div></div>
+<div class="stack">
+<section class="card"><h3>Administrator sign-in</h3><p class="sub">Use the Hub API key once to start a revocable session. “Remember this browser” saves only a secure HttpOnly cookie for 30 days, not the key itself.</p>
+<div class="row" style="margin-top:18px"><input type="password" id="apiKey" placeholder="Hub administrator API key" autocomplete="off" style="max-width:380px"><button id="signIn">Connect</button></div>
+<div class="row" style="margin-top:12px"><label style="margin:0"><input type="checkbox" id="rememberBrowser" checked> Remember this browser for 30 days</label><span id="sessionBadge" class="badge">Not connected</span></div>
+<div class="divider"></div><div class="row between"><div><h4>Trusted browsers</h4><p class="sub">Sign out this browser, or revoke every remembered session if you suspect unauthorized access.</p></div><div class="row"><button class="secondary" id="signOut">Sign out</button><button class="danger" id="signOutAll">Revoke all sessions</button></div></div>
+</section>
+<section class="card"><h3>Display preferences</h3><div class="row between"><div><h4>Automatic refresh</h4><p class="sub">Only a refresh interval is saved locally; never credentials.</p></div><select id="refreshInterval" style="max-width:210px"><option value="0">Manual only</option><option value="15">Every 15 seconds</option><option value="30">Every 30 seconds</option><option value="60">Every minute</option></select></div><div class="row" style="justify-content:flex-end;margin-top:14px"><button class="secondary" id="saveSettings">Save preferences</button></div></section>
+<section class="card"><h3>Hub connection & safety</h3><div class="settings-item row between"><span>Hub URL</span><span id="hubAddress" class="mono small"></span></div><div class="settings-item row between"><span>Hub health</span><span id="hubHealth" class="badge">Checking</span></div><div class="callout warn" style="margin-top:15px">Keep the Hub bound to loopback or behind an authenticated HTTPS proxy. Printers require local approval. The web dashboard cannot override station allowlists.</div></section>
+</div>
+</section>
+<div class="footer-note">DeviceShare alpha · CUPS queue enabled is not the same as printer physically online · A queued job must never be retried blindly.</div>
+</main>
+</div>
+</div>
+<script>
+(() => {
+"use strict";
+const el=id=>document.getElementById(id);
+const page=location.pathname.split("/").filter(Boolean).pop()||"dashboard";
+const pages={dashboard:"Overview",printers:"Printers",studio:"Print Studio",jobs:"Activity",devices:"Devices & stations",settings:"Settings"};
+let connected=false,agents=[],jobs=[],printers=[],chosen=localStorage.getItem("deviceshare_printer")||"",lastToken="",busy=false;
+const text=(id,value)=>{el(id).textContent=String(value)};
+const make=(tag,cls,value)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(value!==undefined)n.textContent=String(value);return n};
+const notify=(value,bad=false)=>{const t=el("toast");t.hidden=false;t.textContent=value;t.className="toast"+(bad?" bad":"")};
+const badge=(value,kind)=>make("span","badge "+(kind||""),value);
+const statusLabel=d=>d.state==="disabled"?"Queue disabled":d.state==="enabled"?"Queue enabled (hardware unverified)":"Availability unknown";
+function authState(){
+ const b=el("authBadge");b.textContent=connected?"Connected":"Signed out";b.className="badge "+(connected?"ok":"warn");
+ text("sessionBadge",connected?"Connected":"Not connected");el("sessionBadge").className=b.className;
+ el("signOut").disabled=!connected;el("signOutAll").disabled=!connected;
+}
+function route(){
+ el("topTitle").textContent=pages[page]||pages.dashboard;
+ for(const node of document.querySelectorAll("[data-screen]"))node.hidden=node.dataset.screen!==page;
+ for(const node of document.querySelectorAll("[data-nav]")){node.classList.toggle("active",node.dataset.nav===page);if(node.dataset.nav===page)node.setAttribute("aria-current","page")}
+ el("hubAddress").textContent=location.origin;
+}
+async function api(path,options={}){
+ if(!connected)throw new Error("Connect in Settings with your Hub administrator key.");
+ const r=await fetch(path,{...options,credentials:"same-origin",cache:"no-store",
+   headers:{"X-DeviceShare-CSRF":"1",...(options.body?{"Content-Type":"application/json"}:{})}});
+ if(!r.ok){let detail="HTTP "+r.status;try{const obj=await r.json();if(typeof obj.detail==="string")detail=obj.detail}catch(e){}
+   if(r.status===401){connected=false;authState()}throw new Error(detail)}
+ return r.json();
+}
+function renderCounts(){
+ const online=agents.filter(a=>a.online);
+ text("countAgents",online.length);text("countPrinters",printers.length);
+ text("countJobs",jobs.filter(j=>j.operation==="print_document"||j.operation==="print_raw").length);
+ text("agentBadge",online.length+" agent"+(online.length===1?"":"s")+" online");
+ text("printerCountLabel",printers.length+" printer"+(printers.length===1?"":"s"));
+ const health=el("overviewHealth");
+ health.textContent=printers.length
+   ? printers.some(p=>p.device.state==="disabled")
+       ?"One or more discovered CUPS queues are disabled. Check macOS Printers & Scanners before printing."
+       :"Printer queues discovered. A queue may be enabled even when the physical device is offline or out of ink."
+   :"No printers reported by online agents. Start the Agent, then scan/approve a local printer.";
+ const target=el("overviewStations");target.replaceChildren();
+ if(!agents.length)target.append(make("div","empty","No stations are registered."));
+ for(const agent of agents){
+   const item=make("div","station row between"),details=make("div");
+   details.append(make("strong",null,agent.agent_id),make("div","sub",(agent.devices||[]).length+" reported devices · "+(agent.credential_status||"unknown credentials")));
+   item.append(details,badge(agent.online?"Online":"Offline",agent.online?"ok":"warn"));target.append(item)
+ }
+}
+function printerKey(p){return p.agent.agent_id+"::"+p.device.id}
+function renderPrinters(){
+ printers=agents.filter(a=>a.online).flatMap(agent=>(agent.devices||[]).filter(d=>d.kind==="printer"&&d.id.startsWith("printer:")).map(device=>({agent,device})));
+ if(!printers.some(p=>printerKey(p)===chosen))chosen="";
+ const grid=el("printerCards");grid.replaceChildren();
+ if(!printers.length)grid.append(make("div","empty","No printers discovered. Check the station connection, CUPS queues and local approvals."));
+ for(const p of printers){
+  const value=printerKey(p),card=make("button","printer-card"+(chosen===value?" selected":""));
+  card.type="button";
+  const hdr=make("div","row"),ic=make("span","printer-icon","▣"),names=make("div");
+  names.append(make("strong",null,p.device.label||p.device.id),make("div","sub",p.agent.agent_id));
+  hdr.append(ic,names);
+  const lower=make("div","row between");lower.append(badge(statusLabel(p.device),p.device.state==="disabled"?"bad":"warn"),make("span","small sub",chosen===value?"Selected":"Choose ›"));
+  card.append(hdr,lower);card.addEventListener("click",()=>{chosen=value;localStorage.setItem("deviceshare_printer",value);renderPrinters();renderStudio();});
+  grid.append(card);
+ }
+ const p=printers.find(p=>printerKey(p)===chosen);
+ text("printerDetail",p?(p.device.label+" · Station "+p.agent.agent_id+" · "+statusLabel(p.device)):"Choose a printer card to begin.");
+ el("goToStudio").disabled=!p;
+}
+function renderStudio(){
+ const list=el("studioPrinter"),old=chosen;list.replaceChildren();
+ const blank=new Option("Select a connected printer…","");list.add(blank);
+ for(const p of printers)list.add(new Option(p.device.label+" — "+p.agent.agent_id+" ("+statusLabel(p.device)+")",printerKey(p)));
+ list.value=printers.some(p=>printerKey(p)===old)?old:"";
+ const p=printers.find(p=>printerKey(p)===chosen);
+ text("studioPrinterStatus",p?(p.device.label+" on "+p.agent.agent_id+". "+statusLabel(p.device)+". Physical status must be confirmed at the printer."):"Choose a printer before submitting a test or custom print.");
+ const disabled=!p||p.device.state==="disabled";
+ for(const id of ["testPrint","printText","printDocument"])el(id).disabled=disabled||busy;
+}
+function renderJobs(){
+ const target=el("jobsTable");target.replaceChildren();
+ if(!jobs.length){const tr=make("tr"),td=make("td","empty","No jobs submitted.");td.colSpan=6;tr.append(td);target.append(tr);return}
+ for(const j of jobs){
+  const tr=make("tr");
+  const detail=j.result&&(j.result.message||j.result.error||j.result.job_id||"");
+  const fields=[String(j.id||"").slice(0,10),j.agent_id,j.device_id,j.operation,j.status,detail||"—"];
+  fields.forEach((v,i)=>{const td=make("td",i===0?"mono":"",v);if(i===4)td.append(badge(j.status,j.status==="failed"?"bad":j.status==="accepted"?"ok":"warn"));tr.append(td)});
+  target.append(tr);
+ }
+}
+function renderDevices(){
+ const station=el("stationTable");station.replaceChildren();
+ const t=make("table"),body=make("tbody");
+ const h=make("thead"),row=make("tr");
+ for(const v of ["Station","Connection","Authorization","Devices"])row.append(make("th",null,v));
+ h.append(row);t.append(h,body);
+ for(const a of agents){const tr=make("tr");[a.agent_id,a.online?"Online":"Offline",a.credential_status||"unknown",(a.devices||[]).length].forEach(v=>tr.append(make("td",null,v)));body.append(tr)}
+ if(!agents.length){const tr=make("tr"),c=make("td","empty","No registered agents.");c.colSpan=4;tr.append(c);body.append(tr)}
+ station.append(t);
+ const container=el("deviceTable");container.replaceChildren();
+ const table=make("table"),thead=make("thead"),tr=make("tr");["Agent","Device","Category","ID"].forEach(x=>tr.append(make("th",null,x)));
+ thead.append(tr);table.append(thead);
+ const tbody=make("tbody");let count=0;
+ for(const a of agents)for(const d of a.devices||[]){const row=make("tr");[a.agent_id,d.label||d.id,d.kind,d.id].forEach(x=>row.append(make("td",null,x)));tbody.append(row);count++}
+ if(!count){const row=make("tr"),cell=make("td","empty","No peripherals connected.");cell.colSpan=4;row.append(cell);tbody.append(row)}
+ table.append(tbody);container.append(table);
+}
+async function refresh(){
+ if(!connected)return;
+ const [a,j]=await Promise.all([api("/v1/agents"),api("/v1/jobs?limit=100")]);
+ agents=a;jobs=j;
+ renderPrinters();renderStudio();renderCounts();renderJobs();renderDevices();
+}
+function selection(){
+ const p=printers.find(p=>printerKey(p)===chosen);
+ if(!p)throw new Error("Select a connected printer first.");
+ if(p.device.state==="disabled")throw new Error("That printer queue is disabled. No job submitted.");
+ return p;
+}
+function printOpts(){
+ return {copies:Number(el("printCopies").value),media:el("printMedia").value,sides:el("printSides").value};
+}
+async function printAction(kind){
+ if(busy)return;
+ const p=selection(),opts=printOpts();
+ if(kind==="text"&&!el("customText").value.trim())throw new Error("Enter custom text before printing.");
+ if(kind==="file"&&!el("printFile").files.length)throw new Error("Choose a PDF or PNG document.");
+ const action=kind==="test"?"DeviceShare test page":kind==="text"?"custom text document":"uploaded document";
+ if(!confirm("Send "+opts.copies+" "+(opts.copies===1?"copy":"copies")+" of "+action+" to "+p.device.label+" on "+p.agent.agent_id+"? Check the printer for paper and connectivity."))return;
+ busy=true;renderStudio();
+ try{
+  let body,url;
+  if(kind==="test"){url="/v1/print/test";body={agent_id:p.agent.agent_id,device_id:p.device.id,...opts}}
+  else if(kind==="text"){url="/v1/print/text";body={agent_id:p.agent.agent_id,device_id:p.device.id,title:el("customTitle").value||"DeviceShare custom print",text:el("customText").value,...opts}}
+  else{
+    const file=el("printFile").files[0];
+    if(file.size>1024*1024)throw new Error("Documents are limited to 1 MiB.");
+    const buffer=new Uint8Array(await file.arrayBuffer());
+    const isPDF=buffer[0]===37&&buffer[1]===80&&buffer[2]===68&&buffer[3]===70&&buffer[4]===45;
+    const isPNG=buffer[0]===137&&buffer[1]===80&&buffer[2]===78&&buffer[3]===71&&buffer[4]===13&&buffer[5]===10&&buffer[6]===26&&buffer[7]===10;
+    if(!isPDF&&!isPNG)throw new Error("Choose a valid PDF or PNG file.");
+    let binary="";for(let i=0;i<buffer.length;i+=8192)binary+=String.fromCharCode(...buffer.slice(i,i+8192));
+    url="/v1/jobs";body={agent_id:p.agent.agent_id,device_id:p.device.id,operation:"print_document",
+     data_base64:btoa(binary),options:{mime_type:isPDF?"application/pdf":"image/png",...opts}};
+  }
+  const result=await api(url,{method:"POST",body:JSON.stringify(body)});
+  text("lastPrintJob","Submitted job "+result.id.slice(0,12)+" · status "+result.status+". OS queue acceptance is not physical print completion.");
+  notify("Job submitted to "+p.device.label+". Check Activity and physical paper output.");
+  await refresh();
+ }finally{busy=false;renderStudio()}
+}
+const guarded=fn=>(...args)=>Promise.resolve().then(()=>fn(...args)).catch(e=>notify(e.message,true));
+async function signIn(){
+ const field=el("apiKey"),key=field.value.trim();if(!key)throw new Error("Enter the administrator API key.");
+ const r=await fetch("/v1/session",{method:"POST",credentials:"same-origin",cache:"no-store",
+  headers:{"Content-Type":"application/json","X-DeviceShare-CSRF":"1"},
+  body:JSON.stringify({api_key:key,remember:el("rememberBrowser").checked})});
+ field.value="";
+ if(!r.ok)throw new Error("Could not sign in. Verify Hub key and HTTPS for remote access (HTTP "+r.status+").");
+ connected=true;authState();await refresh();notify("Connected. No raw API key was stored in the browser.");
+}
+async function restore(){
+ try{
+  const r=await fetch("/v1/session",{credentials:"same-origin",cache:"no-store"});
+  const state=await r.json();connected=state.authenticated===true;authState();
+  if(connected){await refresh();notify("Saved browser session restored.");}
+  else if(page!=="settings")notify("Sign in under Settings to load your stations and printers.");
+ }catch(e){notify("Unable to restore session: "+e.message,true)}
+}
+async function logout(all){
+ if(all&&!confirm("Revoke all saved browser sessions? You will need to sign in again everywhere."))return;
+ const r=await fetch(all?"/v1/sessions":"/v1/session",{
+  method:"DELETE",credentials:"same-origin",headers:{"X-DeviceShare-CSRF":"1"},cache:"no-store"});
+ if(!r.ok)throw new Error("Sign-out failed (HTTP "+r.status+").");
+ connected=false;agents=[];jobs=[];printers=[];lastToken="";text("newToken","No token issued this session.");el("copyToken").disabled=true;
+ authState();renderPrinters();renderStudio();renderCounts();renderJobs();renderDevices();
+ notify(all?"All remembered browser sessions revoked.":"Signed out this browser.");
+}
+async function pair(){
+ const id=el("pairID").value.trim();if(!/^[A-Za-z0-9_.-]{1,80}$/.test(id))throw new Error("Enter a valid station ID.");
+ if(!confirm("Generate or rotate the token for "+id+"? A connected agent may disconnect."))return;
+ const result=await api("/v1/agents/"+encodeURIComponent(id)+"/credential",{method:"POST"});
+ lastToken=result.token;text("newToken",lastToken);el("copyToken").disabled=false;
+ await refresh();notify("Token generated for "+id+". Copy it now; it cannot be viewed again later.");
+}
+async function revoke(){
+ const id=el("revokeID").value.trim();if(!/^[A-Za-z0-9_.-]{1,80}$/.test(id))throw new Error("Enter a valid station ID.");
+ if(!confirm("Revoke "+id+" and disconnect it?"))return;
+ await api("/v1/agents/"+encodeURIComponent(id)+"/credential",{method:"DELETE"});
+ await refresh();notify("Station token revoked for "+id+".");
+}
+route();authState();
+el("headerRefresh").addEventListener("click",guarded(async()=>{await refresh();notify("Station and print activity refreshed.")}));
+el("scanPrinters").addEventListener("click",guarded(refresh));
+el("refreshJobs").addEventListener("click",guarded(refresh));
+el("refreshDevices").addEventListener("click",guarded(refresh));
+el("goToStudio").addEventListener("click",()=>{location.href="/studio"});
+el("studioPrinter").addEventListener("change",()=>{chosen=el("studioPrinter").value;localStorage.setItem("deviceshare_printer",chosen);renderPrinters();renderStudio()});
+el("customText").addEventListener("input",()=>{text("textPreview",el("customText").value||"Your custom text appears here before printing.")});
+el("testPrint").addEventListener("click",guarded(()=>printAction("test")));
+el("printText").addEventListener("click",guarded(()=>printAction("text")));
+el("printDocument").addEventListener("click",guarded(()=>printAction("file")));
+el("signIn").addEventListener("click",guarded(signIn));
+el("signOut").addEventListener("click",guarded(()=>logout(false)));
+el("signOutAll").addEventListener("click",guarded(()=>logout(true)));
+el("pairButton").addEventListener("click",guarded(pair));
+el("revokeButton").addEventListener("click",guarded(revoke));
+el("copyToken").addEventListener("click",guarded(async()=>{if(!lastToken)throw new Error("No token to copy.");await navigator.clipboard.writeText(lastToken);notify("Copied. Keep the station credential private.")}));
+el("refreshInterval").value=localStorage.getItem("deviceshare_refresh_seconds")||"30";
+el("saveSettings").addEventListener("click",()=>{localStorage.setItem("deviceshare_refresh_seconds",el("refreshInterval").value);notify("Refresh preferences saved. Reload to apply the new interval.")});
+window.setInterval(()=>{const n=Number(localStorage.getItem("deviceshare_refresh_seconds")||"30");if(!connected||document.hidden||!n)return;const t=Date.now();if(!window._lastDeviceRefresh||t-window._lastDeviceRefresh>=n*1000){window._lastDeviceRefresh=t;refresh().catch(e=>notify("Refresh: "+e.message,true))}},5000);
+guarded(async()=>{const r=await fetch("/healthz",{cache:"no-store"});const v=await r.json();const b=el("hubHealth");b.textContent=r.ok&&v.service==="deviceshare"?"Responding":"Unavailable";b.className="badge "+(r.ok?"ok":"bad")})();
+restore();
+})();
+</script>
+</body>
+</html>
