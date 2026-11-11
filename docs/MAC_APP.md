@@ -1,4 +1,4 @@
-# DeviceShare.app for macOS (v0.2.0-alpha.3)
+# DeviceShare.app for macOS (v0.2.0-alpha.4)
 
 DeviceShare now has a **native SwiftUI management window** in
 `/Applications/DeviceShare.app`. This is an alpha; it has no Apple Developer
