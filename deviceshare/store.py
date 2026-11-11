@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """SQLite job ledger; no automatic retry after a job is sent to hardware."""
 import hashlib
 import hmac
