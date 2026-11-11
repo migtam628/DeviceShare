@@ -20,6 +20,8 @@ final class DeviceShareController: ObservableObject {
     @Published var hubURL = "http://127.0.0.1:8765"
     @Published var stationID = "station-01"
     @Published var adminAPIKey = ""
+    @Published var rememberRemoteAdminKey = false
+    @Published var savedAdminKeyAvailable = false
     @Published var manualToken = ""
     @Published var peripherals: [LocalPeripheral] = []
     @Published var approvals = Set<String>()
@@ -163,6 +165,79 @@ final class DeviceShareController: ObservableObject {
         } catch { notice = error.localizedDescription }
     }
 
+    private func keychainQuery(for hub: URL) -> [String: Any] {
+        [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "com.mttechservices.deviceshare.admin-api-key",
+            kSecAttrAccount as String: hub.absoluteString
+        ]
+    }
+
+    private func rememberedKey(for hub: URL) -> String? {
+        var query = keychainQuery(for: hub)
+        query[kSecReturnData as String] = kCFBooleanTrue
+        query[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
+              let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    func refreshKeychainStatus() {
+        do {
+            let hub = try validatedHubURL()
+            savedAdminKeyAvailable = rememberedKey(for: hub) != nil
+        } catch { savedAdminKeyAvailable = false }
+    }
+
+    private func persistAdminKey(_ value: String, for hub: URL) throws {
+        guard value.count >= 16 else {
+            throw NSError(domain: "DeviceShare", code: 115,
+                          userInfo: [NSLocalizedDescriptionKey: "Enter an administrator key of at least 16 characters."])
+        }
+        var query = keychainQuery(for: hub)
+        let data = Data(value.utf8)
+        let update: [String: Any] = [kSecValueData as String: data]
+        let result = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        if result == errSecItemNotFound {
+            query[kSecValueData as String] = data
+            query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+            let created = SecItemAdd(query as CFDictionary, nil)
+            guard created == errSecSuccess else {
+                throw NSError(domain: "DeviceShare", code: Int(created),
+                              userInfo: [NSLocalizedDescriptionKey: "Keychain could not store the administrator key."])
+            }
+        } else if result != errSecSuccess {
+            throw NSError(domain: "DeviceShare", code: Int(result),
+                          userInfo: [NSLocalizedDescriptionKey: "Keychain could not update the administrator key."])
+        }
+        savedAdminKeyAvailable = true
+    }
+
+    func saveAdminKeyToKeychain() {
+        do {
+            let hub = try validatedHubURL()
+            let entered = adminAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            try persistAdminKey(entered, for: hub)
+            adminAPIKey = ""
+            notice = "Hub administrator key saved in macOS Keychain for this Hub URL. It is never placed in agent.json."
+        } catch { notice = error.localizedDescription }
+    }
+
+    func forgetAdminKeyFromKeychain() {
+        do {
+            let hub = try validatedHubURL()
+            let result = SecItemDelete(keychainQuery(for: hub) as CFDictionary)
+            guard result == errSecSuccess || result == errSecItemNotFound else {
+                throw NSError(domain: "DeviceShare", code: Int(result),
+                              userInfo: [NSLocalizedDescriptionKey: "Unable to remove Keychain entry."])
+            }
+            adminAPIKey = ""
+            savedAdminKeyAvailable = false
+            notice = "Saved remote administrator key removed from macOS Keychain."
+        } catch { notice = error.localizedDescription }
+    }
+
     private func localHubKey(for url: URL) -> String? {
         guard let host = url.host?.lowercased(),
               ["127.0.0.1", "localhost", "::1"].contains(host),
@@ -178,7 +253,8 @@ final class DeviceShareController: ObservableObject {
             do {
                 try validateStationID()
                 let hub = try validatedHubURL()
-                let key = localHubKey(for: hub) ?? adminAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                let enteredKey = adminAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                let key = localHubKey(for: hub) ?? (!enteredKey.isEmpty ? enteredKey : rememberedKey(for: hub) ?? "")
                 guard key.count >= 16 else {
                     throw NSError(domain: "DeviceShare", code: 106,
                                   userInfo: [NSLocalizedDescriptionKey: "Start the local hub or provide the administrator key for the remote hub."])
@@ -203,6 +279,9 @@ final class DeviceShareController: ObservableObject {
                                   userInfo: [NSLocalizedDescriptionKey: "Hub returned an invalid station credential."])
                 }
                 try writePrivate(Data(token.utf8), to: tokenURL)
+                if rememberRemoteAdminKey && !enteredKey.isEmpty && localHubKey(for: hub) == nil {
+                    try persistAdminKey(enteredKey, for: hub)
+                }
                 adminAPIKey = ""
                 notice = "Station paired. Previous station credentials are invalidated; restart the agent if it was running."
                 refreshServices()
