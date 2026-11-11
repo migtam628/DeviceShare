@@ -211,7 +211,7 @@ def create_app(
 
 def main():
     parser = argparse.ArgumentParser(description="DeviceShare HTTP hub")
-    parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a1")
+    parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a2")
     args = parser.parse_args()
     # Loopback by default. For remote access, put TLS and authentication in front.
     uvicorn.run(create_app(), host=os.getenv("DEVICESHARE_HOST", "127.0.0.1"),
