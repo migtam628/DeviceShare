@@ -23,8 +23,10 @@ struct DeviceShareHome: View {
     @State private var currentTab: Tab = .setup
 
     private enum Tab: String, CaseIterable {
-        case setup = "Setup"
-        case devices = "Devices"
+        case setup = "Overview"
+        case printers = "Printers"
+        case studio = "Print Studio"
+        case devices = "Local Devices"
         case services = "Services"
         case settings = "Settings"
     }
@@ -50,20 +52,47 @@ struct DeviceShareHome: View {
                 }
             }
 
-            TabView(selection: $currentTab) {
-                setupPanel
-                    .tabItem { Label("First-run setup", systemImage: "slider.horizontal.3") }
-                    .tag(Tab.setup)
-                devicePanel
-                    .tabItem { Label("Local devices", systemImage: "printer") }
-                    .tag(Tab.devices)
-                servicesPanel
-                    .tabItem { Label("Background services", systemImage: "bolt.horizontal.circle") }
-                    .tag(Tab.services)
-                settingsPanel
-                    .tabItem { Label("Settings", systemImage: "gearshape") }
-                    .tag(Tab.settings)
+            HStack(alignment: .top, spacing: 15) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("WORKSPACE")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 9)
+                        .padding(.bottom, 6)
+                    ForEach(Tab.allCases, id: \.self) { tab in
+                        Button {
+                            currentTab = tab
+                        } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: iconName(for: tab))
+                                    .frame(width: 20)
+                                Text(tab.rawValue)
+                                    .font(.system(size: 13, weight: currentTab == tab ? .semibold : .medium))
+                                Spacer(minLength: 0)
+                            }
+                            .foregroundStyle(currentTab == tab ? Color.accentColor : Color.primary)
+                            .padding(.horizontal, 11)
+                            .padding(.vertical, 12)
+                            .background(
+                                currentTab == tab ? Color.accentColor.opacity(0.14) : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 9)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Spacer(minLength: 0)
+                    Text("LOCAL DEVICE BRIDGE")
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                        .padding(.horizontal, 10)
+                }
+                .padding(11)
+                .frame(width: 177, maxHeight: .infinity, alignment: .topLeading)
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+                selectedPanel
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
+            .frame(maxHeight: .infinity)
 
             HStack(alignment: .top, spacing: 9) {
                 Image(systemName: "info.circle")
@@ -93,6 +122,29 @@ struct DeviceShareHome: View {
         }
         .padding(20)
         .onAppear { controller.refreshServices() }
+    }
+
+    private func iconName(for tab: Tab) -> String {
+        switch tab {
+        case .setup: return "square.grid.2x2"
+        case .printers: return "printer"
+        case .studio: return "doc.text"
+        case .devices: return "cable.connector"
+        case .services: return "bolt.horizontal.circle"
+        case .settings: return "gearshape"
+        }
+    }
+
+    @ViewBuilder
+    private var selectedPanel: some View {
+        switch currentTab {
+        case .setup: setupPanel
+        case .printers: printerPanel
+        case .studio: studioPanel
+        case .devices: devicePanel
+        case .services: servicesPanel
+        case .settings: settingsPanel
+        }
     }
 
     private var setupPanel: some View {
