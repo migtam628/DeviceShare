@@ -31,7 +31,7 @@ deviceshare-devices = "deviceshare.discovery:main"
 include = ["deviceshare*"]
 
 [tool.setuptools.package-data]
-deviceshare = ["dashboard.html", "settings.html"]
+deviceshare = ["dashboard.html", "settings.html", "console.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
