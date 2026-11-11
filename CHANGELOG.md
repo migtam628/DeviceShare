@@ -9,6 +9,12 @@
 - Added agent token-file support, dashboard packaging and pairing/security tests.
 - Legacy shared agent secret is now optional and never overrides a paired station.
 
+### New portable release work (unreleased)
+- Restricted, allowlisted HID input report backend (read-only).
+- Per-user background startup scripts for Linux, macOS and Windows.
+- Portable ZIP packaging with frozen hub/agent startup and dashboard smoke tests.
+- GitHub portable preview and prerelease gating workflows with checksum generation.
+
 ### Remaining
 - Native operating-system installers, production pairing approvals and RBAC, safe HID/USB plugins and multi-user audit.
 - Release workflow binaries still require full verification.
