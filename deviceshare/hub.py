@@ -6,6 +6,7 @@ import json
 import os
 import re
 import secrets
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -212,9 +213,17 @@ def create_app(
 def main():
     parser = argparse.ArgumentParser(description="DeviceShare HTTP hub")
     parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a2")
+    parser.add_argument("--api-key-file", default=os.getenv("DEVICESHARE_API_KEY_FILE"),
+                        help="Read administrator API key from a private file instead of shell environment")
     args = parser.parse_args()
+    key = None
+    if args.api_key_file:
+        file_path = Path(args.api_key_file).expanduser()
+        if os.name != "nt" and file_path.stat().st_mode & 0o077:
+            parser.error("Administrator key file must have private permissions (chmod 600)")
+        key = file_path.read_text(encoding="utf-8").strip()
     # Loopback by default. For remote access, put TLS and authentication in front.
-    uvicorn.run(create_app(), host=os.getenv("DEVICESHARE_HOST", "127.0.0.1"),
+    uvicorn.run(create_app(api_key=key), host=os.getenv("DEVICESHARE_HOST", "127.0.0.1"),
                 port=int(os.getenv("DEVICESHARE_PORT", "8765")))
 
 if __name__ == "__main__":
