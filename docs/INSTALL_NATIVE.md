@@ -44,7 +44,7 @@ After installation, open PowerShell and verify:
 Use `C:\Program Files\DeviceShare Setup` for the setup-EXE edition.
 
 **Configuration lives outside Program Files**. For example, create
-`$env:LOCALAPPDATA\DeviceShare\config\`, copy the example JSON there,
+`$env:LOCALAPPDATA\DeviceShare\config`, copy the example JSON there,
 and put your paired token in `agent.token` alongside `agent.json`.
 Set the JSON `token_file` to the absolute location of that token file;
 choose a private absolute `simulator_dir` too. Never use real API tokens
@@ -64,16 +64,16 @@ approved. There is no Windows background-system-service installation yet.
 ## macOS Apple Silicon or Intel
 
 **Version 0.2.0-alpha.3** includes a real native SwiftUI
-\`/Applications/DeviceShare.app\` with station setup, local-hub management,
+`/Applications/DeviceShare.app` with station setup, local-hub management,
 pairing, device approvals and per-user service start/stop.
 
 ### Installer options
 
-- **PKG:** Run \`DeviceShare-macos-arm64.pkg\` or the Intel \`macos-x64.pkg\`.
-  The installer places \`DeviceShare.app\` in \`/Applications\` and updates
-  the legacy \`/usr/local/bin/deviceshare-agent\` and
-  \`/usr/local/bin/deviceshare-hub\` paths as links into the app.
-- **DMG:** Mount it and either drag \`DeviceShare.app\` into Applications,
+- **PKG:** Run `DeviceShare-macos-arm64.pkg` or the Intel `macos-x64.pkg`.
+  The installer places `DeviceShare.app` in `/Applications` and updates
+  the legacy `/usr/local/bin/deviceshare-agent` and
+  `/usr/local/bin/deviceshare-hub` paths as links into the app.
+- **DMG:** Mount it and either drag `DeviceShare.app` into Applications,
   or run the included PKG. Dragging the app installs the GUI and its bundled
   executables but does **not** install the two optional command-line links.
   Do not run the app from the mounted disk image; move it to Applications first.
@@ -98,13 +98,13 @@ pairing, device approvals and per-user service start/stop.
    a loaded LaunchAgent is not proof of a working network connection.
 
 The app never grants blanket USB access or opens the hub to your network.
-Its local hub binds to loopback \`127.0.0.1:8765\` only.
+Its local hub binds to loopback `127.0.0.1:8765` only.
 
 ### Local state and diagnostics
 
 Persistent user data stays outside the installer in:
 
-\`\`\`text
+```text
 ~/Library/Application Support/DeviceShare/
   agent.json
   agent.token
@@ -112,24 +112,24 @@ Persistent user data stays outside the installer in:
   deviceshare.db    (when using the optional local hub)
   logs/
   simulator/
-\`\`\`
+```
 
 Files containing tokens, keys and configs have private permissions. The
 LaunchAgent plists are created only after you explicitly start a service:
 
-\`\`\`text
+```text
 ~/Library/LaunchAgents/com.mttechservices.deviceshare.agent.plist
 ~/Library/LaunchAgents/com.mttechservices.deviceshare.hub.plist
-\`\`\`
+```
 
 For command-line diagnostics after installing the PKG:
 
-\`\`\`bash
+```bash
 /usr/local/bin/deviceshare-agent --version
 /usr/local/bin/deviceshare-hub --version
-\`\`\`
+```
 
-The older \`com.deviceshare.agent\` startup definition from the portable
+The older `com.deviceshare.agent` startup definition from the portable
 installer is separate. If you enabled it previously, stop and disable it
 before enabling the new app-managed agent, or two agents may connect using
 the same station ID.
@@ -137,7 +137,7 @@ the same station ID.
 ### Uninstall notes
 
 Stop both services from DeviceShare.app before uninstalling. Removing
-\`/Applications/DeviceShare.app\` and the CLI symlinks removes the program
+`/Applications/DeviceShare.app` and the CLI symlinks removes the program
 but **does not erase private pairing tokens or user data**. Delete those
 separately if you intend to decommission the station. With a PKG install,
 macOS package receipts can remain after manual file removal.
