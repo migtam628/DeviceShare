@@ -1,0 +1,9 @@
+{
+  "agent_id": "station-01",
+  "hub_url": "http://127.0.0.1:8765",
+  "allow_simulator": true,
+  "simulator_dir": "./data/simulator",
+  "allowed_printers": [],
+  "allowed_serial_ports": [],
+  "allow_insecure_remote": false
+}
