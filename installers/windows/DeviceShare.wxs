@@ -2,7 +2,7 @@
 <!-- WiX Toolset v5. The payload is built on the Windows runner by PyInstaller. -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Package Name="DeviceShare" Manufacturer="MT Tech Services LLC"
-           Version="0.2.3" UpgradeCode="a20ab092-acb4-416d-9f13-a1e58749c406"
+           Version="0.2.4" UpgradeCode="a20ab092-acb4-416d-9f13-a1e58749c406"
            Scope="perMachine">
     <MajorUpgrade DowngradeErrorMessage="A newer DeviceShare version is already installed."/>
     <MediaTemplate EmbedCab="yes"/>
