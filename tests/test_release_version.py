@@ -5,7 +5,7 @@ from scripts.verify_release_version import validate
 
 
 def test_alpha_release_tag():
-    assert validate("v0.2.0-alpha.1") == "0.2.0a1"
+    assert validate("v0.2.0-alpha.2") == "0.2.0a1"
 
 
 @pytest.mark.parametrize("bad", [
