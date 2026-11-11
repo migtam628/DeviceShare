@@ -193,9 +193,15 @@ struct DeviceShareHome: View {
                 .disabled(controller.isBusy)
             }
             if controller.peripherals.isEmpty {
-                ContentUnavailableView("No devices scanned", systemImage: "printer.slash",
-                                       description: Text("Select Scan Local Devices to inspect attached hardware."))
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: 8) {
+                    Image(systemName: "printer.slash")
+                        .font(.system(size: 36))
+                        .foregroundStyle(.secondary)
+                    Text("No devices scanned").font(.headline)
+                    Text("Select Scan Local Devices to inspect attached hardware.")
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 List {
                     ForEach(controller.peripherals) { peripheral in
