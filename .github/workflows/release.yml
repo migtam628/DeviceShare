@@ -1,5 +1,5 @@
 name: Build GitHub Release
-# Alpha.5: require all four packaging targets, including macOS 13-compatible SwiftUI.
+# Alpha.5: require all four native targets and deterministic macOS payload validation.
 
 on:
   push:
