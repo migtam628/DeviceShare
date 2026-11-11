@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.2.0-alpha.4 — Print Studio and safer remembered login (2026-11-11)
+
+- Reorganized the browser UI into distinct Overview, Printers, Print Studio, Activity, Devices, and Settings routes.
+- Added selectable printer inventory and CUPS queue enabled/disabled metadata, explicitly distinct from hardware online status.
+- Added bounded PDF test page generator, custom text-to-PDF printing, and PDF/PNG file upload to selected approved printers.
+- Added validated copies (1–5), Letter/A4, and single/duplex CUPS options.
+- Redesigned native macOS SwiftUI UI with a six-section sidebar, printer selection/approval, test print and custom document actions.
+- Added optional remote Hub administrator key persistence in macOS Keychain and revocable, HttpOnly remembered browser sessions with CSRF protection.
+- Added automated tests for PDF rendering, CUPS arguments, print API dispatch, remembered sessions and console page routes.
+- Actual printer output and remote Keychain behavior still require field validation; Windows PDF document printing is not yet implemented.
+
 ## v0.2.0-alpha.3 — Native macOS DeviceShare.app (2026-11-11)
 
 - Added a real SwiftUI management window installed at `/Applications/DeviceShare.app`, packaged for Apple Silicon and Intel Macs.
