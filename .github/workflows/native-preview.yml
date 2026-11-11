@@ -5,10 +5,15 @@ on:
     branches: [main]
     paths:
       - "installers/**"
+      - "macos/**"
       - "scripts/build_native_*"
       - "docs/INSTALL_NATIVE.md"
       - ".github/workflows/native-preview.yml"
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
