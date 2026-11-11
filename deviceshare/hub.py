@@ -52,7 +52,7 @@ def create_app(
     if agent_token and (len(agent_token) < 16 or secrets.compare_digest(api_key, agent_token)):
         raise RuntimeError("Legacy agent token must be distinct from the API key (16+ characters)")
     store = Store(store_path or os.environ.get("DEVICESHARE_DB", "./data/deviceshare.db"))
-    app = FastAPI(title="DeviceShare", version="0.2.0a4",
+    app = FastAPI(title="DeviceShare", version="0.2.0a5",
                   description="DeviceShare API. Printing accepted by an OS queue does not prove paper output.")
     clients: dict[str, AgentConnection] = {}
     app.state.store = store
@@ -453,7 +453,7 @@ def create_app(
 
 def main():
     parser = argparse.ArgumentParser(description="DeviceShare HTTP hub")
-    parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a4")
+    parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a5")
     parser.add_argument("--api-key-file", default=os.getenv("DEVICESHARE_API_KEY_FILE"),
                         help="Read administrator API key from a private file instead of shell environment")
     parser.add_argument("--issue-activation-code", action="store_true",
