@@ -110,7 +110,7 @@ An idempotency key helps prevent duplicate API submissions. It does not guarante
 python -m pytest -q
 ```
 
-GitHub Actions tests on Windows, macOS, and Linux. On pushes of version tags like `v0.1.0-alpha.1`, the release workflow attempts to build single-file agent and hub binaries, and publish the results on [GitHub Releases](https://github.com/migtam628/DeviceShare/releases). **These build pipelines are not yet verified on all OSs; do not assume a tagged release succeeded until Actions passes.**
+GitHub Actions tests on Windows, macOS, and Linux. The [portable preview workflow](https://github.com/migtam628/DeviceShare/actions/workflows/preview.yml) builds and smoke-tests Windows x64, Linux x64, Intel Mac and Apple Silicon Mac executables. On a matching tag like `v0.2.0-alpha.1`, the [release workflow](https://github.com/migtam628/DeviceShare/actions/workflows/release.yml) publishes ZIPs with checksums only after version validation, unit tests and portable smoke tests pass. See [agent installation](docs/INSTALL_AGENT.md).
 
 Current priority: verify portable preview builds on all four OS targets, publish a tested alpha prerelease, test real printers/HID readers, then add scoped API permissions and device plugins.
 
