@@ -10,12 +10,12 @@ import pytest
 def test_console_contains_all_screens_and_printer_actions():
     html = files("deviceshare").joinpath("console.html").read_text(encoding="utf-8")
     assert "<title>DeviceShare Console</title>" in html
-    for screen in ("dashboard", "printers", "studio", "jobs", "devices", "settings"):
+    for screen in ("dashboard", "printers", "studio", "jobs", "devices", "diagnostics", "settings"):
         assert 'data-screen="' + screen + '"' in html
         assert 'data-nav="' + screen + '"' in html
     for name in ("studioPrinter", "testPrint", "customText", "printText",
                  "printDocument", "printCopies", "printMedia", "printSides",
-                 "signIn", "signOut", "signOutAll"):
+                 "signIn", "signOut", "signOutAll", "runDiagnostics", "copyDiagnostics", "refreshSelectedPrinter"):
         assert 'id="' + name + '"' in html
     assert "localStorage.setItem(\"deviceshare_printer\"" in html
     assert "localStorage.setItem(\"deviceshare_refresh_seconds\"" in html
