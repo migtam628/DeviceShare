@@ -2,7 +2,7 @@
 
 **DeviceShare** is a self-hosted peripheral bridge for sending print jobs and communicating with locally attached hardware from websites, POS applications, inventory systems, and remote servers.
 
-**Project status: v0.2.0-alpha.5.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not connect to untrusted devices, commands, or the open internet.
+**Project status: v0.2.0-alpha.6.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not connect to untrusted devices, commands, or the open internet.
 
 ## Activation and email/password sign-in (alpha.5)
 
@@ -12,7 +12,7 @@ Use **Settings** to change the password, revoke remembered browser sessions, and
 
 **[Full activation and recovery guide](docs/AUTH_SETUP.md)**
 
-## Next improvements being built (alpha.6)
+## Diagnostics and Printer Center (alpha.6)
 
 - **Diagnostics:** detect offline stations, stale inventory, denied printer approvals, disabled or non-accepting CUPS queues, and failed/uncertain jobs with specific repair instructions.
 - **Printer Center:** show local approvals separately from queue status, block known-unapproved jobs and safely request a new device scan.
@@ -23,14 +23,14 @@ Read the [Diagnostics guide](docs/DIAGNOSTICS.md) and [Mac acceptance issue](htt
 
 ## Native installation packages
 
-**[Download DeviceShare v0.2.0-alpha.5](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.5)**
+**[Download DeviceShare v0.2.0-alpha.6](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.6)**
 
 | Platform | Native installer |
 | --- | --- |
-| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-Setup-windows-x64.exe) |
-| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-macos-arm64.pkg) |
-| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare-macos-x64.pkg) |
-| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.5/DeviceShare_0.2.0.alpha5_amd64.deb) |
+| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-Setup-windows-x64.exe) |
+| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-macos-arm64.pkg) |
+| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-macos-x64.pkg) |
+| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare_0.2.0.alpha6_amd64.deb) |
 
 Read **[native installer setup](docs/INSTALL_NATIVE.md)** and compare downloads with the release's `SHA256SUMS.txt`. Installer files include both the Agent and Hub; they do not automatically authorize peripherals or install OS drivers. Portable ZIP builds remain available.
 
