@@ -12,6 +12,15 @@ Use **Settings** to change the password, revoke remembered browser sessions, and
 
 **[Full activation and recovery guide](docs/AUTH_SETUP.md)**
 
+## Next improvements being built (alpha.6)
+
+- **Diagnostics:** detect offline stations, stale inventory, denied printer approvals, disabled or non-accepting CUPS queues, and failed/uncertain jobs with specific repair instructions.
+- **Printer Center:** show local approvals separately from queue status, block known-unapproved jobs and safely request a new device scan.
+- **macOS Diagnostics:** actionable checks and a read-only station rescan without Terminal.
+- **Acceptance baseline:** the Mac mini owner verified email/password login, Agent reconnection, a physical test page and persistent browser login. Full reboot persistence and hardware-specific Zebra/Brother/HID tests remain open.
+
+Read the [Diagnostics guide](docs/DIAGNOSTICS.md) and [Mac acceptance issue](https://github.com/migtam628/DeviceShare/issues/2).
+
 ## Native installation packages
 
 **[Download DeviceShare v0.2.0-alpha.5](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.5)**
