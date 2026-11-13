@@ -84,6 +84,7 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
 <a class="nav-item" href="/printers" data-nav="printers"><span class="nav-icon">▣</span> Printers</a>
 <a class="nav-item" href="/studio" data-nav="studio"><span class="nav-icon">✦</span> Print Studio</a>
 <a class="nav-item" href="/jobs" data-nav="jobs"><span class="nav-icon">≡</span> Activity</a>
+<a class="nav-item" href="/diagnostics" data-nav="diagnostics"><span class="nav-icon">♡</span> Diagnostics</a>
 </nav></div>
 <div><div class="navheading">System</div><nav class="nav-group">
 <a class="nav-item" href="/devices" data-nav="devices"><span class="nav-icon">⬡</span> Devices & stations</a>
@@ -161,15 +162,15 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
 <div class="card soft"><div class="stat-label">Recent print jobs</div><div id="countJobs" class="stat-num">—</div><p class="sub">Most recent 100 jobs</p></div>
 <div class="card full"><div class="section-header"><h3>Get DeviceShare ready</h3><span class="badge">Setup checklist</span></div><div id="setupProgress" class="setup-progress"></div></div>
 <div class="card wide"><div class="section-header"><h3>Stations</h3><a class="link small" href="/devices">Manage stations</a></div><div id="overviewStations"><div class="empty">Connect to view stations.</div></div></div>
-<div class="card"><h3>Quick actions</h3><div class="stack"><a class="quicklink" href="/printers">Select a printer <span>›</span></a><a class="quicklink" href="/studio">Print a test page <span>›</span></a><a class="quicklink" href="/jobs">Review print activity <span>›</span></a></div></div>
+<div class="card"><h3>Quick actions</h3><div class="stack"><a class="quicklink" href="/printers">Select a printer <span>›</span></a><a class="quicklink" href="/studio">Print a test page <span>›</span></a><a class="quicklink" href="/diagnostics">Check diagnostics <span>›</span></a><a class="quicklink" href="/jobs">Review print activity <span>›</span></a></div></div>
 <div class="card full"><h3>Printing health</h3><p id="overviewHealth" class="callout">Sign in to review your printer queues.</p></div>
 </div>
 </section>
 
 <section data-screen="printers" hidden>
-<div class="page-intro"><div><h2>Printers</h2><p class="sub">Choose an installed queue on a connected station. Queue status is not proof the physical printer is online.</p></div><button class="secondary" id="scanPrinters">Refresh inventory</button></div>
+<div class="page-intro"><div><h2>Printer Center</h2><p class="sub">Select a queue, review local approval and OS status, then send a controlled test print. An enabled queue is not proof of paper output.</p></div><button class="secondary" id="scanPrinters">Refresh status</button></div>
 <div class="card" style="margin-bottom:18px"><div class="section-header"><h3>Available printers</h3><span id="printerCountLabel" class="badge">0 printers</span></div><div id="printerCards" class="printer-grid"><div class="empty">No printers loaded yet.</div></div></div>
-<div class="split"><section class="card"><h3>Selected printer</h3><div class="selected-info" id="printerDetail">Select a printer above to see its station and queue status.</div><div class="divider"></div><button id="goToStudio">Use this printer in Print Studio</button></section><section class="card"><h3>Printer setup notes</h3><p class="sub">Printers are discovered from the station's operating system and must also be explicitly approved under the Mac app's <strong>Local devices</strong> tab. A disabled queue cannot receive a DeviceShare test print.</p><div class="callout warn" style="margin-top:15px">If macOS shows “Printer is offline,” fix the physical connection or printer queue before sending more jobs. Do not repeatedly retry the same print.</div></section></div>
+<div class="split"><section class="card"><h3>Selected printer</h3><div class="selected-info" id="printerDetail">Select a printer above to see its station and queue status.</div><div class="divider"></div><div class="row"><button id="goToStudio">Use in Print Studio</button><button class="secondary" id="refreshSelectedPrinter">Rescan this station</button></div><p class="sub" style="margin-top:12px">Your last selected printer is remembered in this browser. A rescan only reads device status; it does not submit a print.</p></section><section class="card"><h3>Printer setup notes</h3><p class="sub">Printers are discovered from the station's operating system and must also be explicitly approved under the Mac app's <strong>Local devices</strong> tab. A disabled queue cannot receive a DeviceShare test print.</p><div class="callout warn" style="margin-top:15px">If macOS shows “Printer is offline,” fix the physical connection or printer queue before sending more jobs. Do not repeatedly retry the same print.</div></section></div>
 </section>
 
 <section data-screen="studio" hidden>
@@ -223,6 +224,18 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
 </div>
 </section>
 
+<section data-screen="diagnostics" hidden>
+<div class="page-intro"><div><h2>Diagnostics</h2><p class="sub">Understand connection and queue issues without opening Terminal. Checks are observational and never modify your printer or station.</p></div><button class="secondary" id="runDiagnostics">Run checks again</button></div>
+<div class="grid">
+  <div class="card soft"><div class="stat-label">Overall condition</div><div class="stat-num" id="diagnosticCondition" style="font-size:24px">—</div><p class="sub">Based on live Agent and queue observations</p></div>
+  <div class="card soft"><div class="stat-label">Connected stations</div><div class="stat-num" id="diagnosticOnline">—</div><p class="sub">Out of registered stations</p></div>
+  <div class="card soft"><div class="stat-label">Issues requiring attention</div><div class="stat-num" id="diagnosticIssues">—</div><p class="sub">Review findings below</p></div>
+  <div class="card wide"><div class="section-header"><h3>What needs attention</h3><span id="diagnosticChecked" class="badge">Not checked</span></div><div id="diagnosticFindings" class="stack"><div class="empty">Sign in to run diagnostics.</div></div></div>
+  <div class="card"><h3>Station rescans</h3><p class="sub" style="margin-bottom:13px">Safely ask an online Agent to refresh its local printer/device inventory. This does not pair, revoke, approve, or send a print job.</p><div id="rescanAgents" class="stack"></div><div class="divider"></div><button class="secondary" id="copyDiagnostics">Copy redacted diagnostics summary</button><p class="sub" style="margin-top:10px">No access tokens or raw job payloads appear in this summary.</p></div>
+</div>
+<div class="callout warn" style="margin-top:18px">DeviceShare can confirm Hub connection and operating-system queue responses, not whether paper emerged from a physical printer. Check uncertain jobs before deciding whether to print again.</div>
+</section>
+
 <section data-screen="settings" hidden>
 <div class="page-intro"><div><h2>Settings</h2><p class="sub">Account security, trusted browser sessions, Hub connection and app preferences.</p></div><span class="badge ok">Administrator access</span></div>
 <div class="stack">
@@ -245,13 +258,14 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
 "use strict";
 const el=id=>document.getElementById(id);
 const page=location.pathname.split("/").filter(Boolean).pop()||"dashboard";
-const pages={dashboard:"Overview",printers:"Printers",studio:"Print Studio",jobs:"Activity",devices:"Devices & stations",settings:"Settings"};
-let connected=false,activated=false,recoveryMode=false,accountEmail="",agents=[],jobs=[],printers=[],chosen=localStorage.getItem("deviceshare_printer")||"",lastToken="",busy=false;
+const pages={dashboard:"Overview",printers:"Printer Center",studio:"Print Studio",jobs:"Activity",diagnostics:"Diagnostics",devices:"Devices & stations",settings:"Settings"};
+let connected=false,activated=false,recoveryMode=false,accountEmail="",agents=[],jobs=[],printers=[],diagnostics=null,chosen=localStorage.getItem("deviceshare_printer")||"",lastToken="",busy=false;
 const text=(id,value)=>{el(id).textContent=String(value)};
 const make=(tag,cls,value)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(value!==undefined)n.textContent=String(value);return n};
 const notify=(value,bad=false)=>{const t=el("toast");t.hidden=false;t.textContent=value;t.className="toast"+(bad?" bad":"")};
 const badge=(value,kind)=>make("span","badge "+(kind||""),value);
-const statusLabel=d=>d.state==="disabled"?"Queue disabled":d.state==="enabled"?"Queue enabled (hardware unverified)":"Availability unknown";
+const statusLabel=d=>d.state==="disabled"?"Queue disabled":d.state==="enabled"?"Queue enabled · physical status unverified":"Queue status unknown";
+const approvalLabel=d=>d.allowed===true?"Locally approved":d.allowed===false?"Approval required":"Approval not reported";
 function showAuthGate(){
  el("authGate").hidden=connected;
  el("workspaceContent").hidden=!connected;
@@ -326,13 +340,14 @@ function renderPrinters(){
   const hdr=make("div","row"),ic=make("span","printer-icon","▣"),names=make("div");
   names.append(make("strong",null,p.device.label||p.device.id),make("div","sub",p.agent.agent_id));
   hdr.append(ic,names);
-  const lower=make("div","row between");lower.append(badge(statusLabel(p.device),p.device.state==="disabled"?"bad":"warn"),make("span","small sub",chosen===value?"Selected":"Choose ›"));
+  const lower=make("div","row between");lower.append(badge(statusLabel(p.device),p.device.state==="disabled"?"bad":"warn"),badge(approvalLabel(p.device),p.device.allowed===true?"ok":p.device.allowed===false?"bad":"warn"),make("span","small sub",chosen===value?"Selected":"Choose ›"));
   card.append(hdr,lower);card.addEventListener("click",()=>{chosen=value;localStorage.setItem("deviceshare_printer",value);renderPrinters();renderStudio();});
   grid.append(card);
  }
  const p=printers.find(p=>printerKey(p)===chosen);
- text("printerDetail",p?(p.device.label+" · Station "+p.agent.agent_id+" · "+statusLabel(p.device)):"Choose a printer card to begin.");
- el("goToStudio").disabled=!p;
+ text("printerDetail",p?(p.device.label+" · Station "+p.agent.agent_id+" · "+statusLabel(p.device)+" · "+approvalLabel(p.device)):"Choose a printer card to begin.");
+ el("goToStudio").disabled=!p||p.device.state==="disabled"||p.device.allowed===false;
+ el("refreshSelectedPrinter").disabled=!p;
 }
 function renderStudio(){
  const list=el("studioPrinter"),old=chosen;list.replaceChildren();
@@ -340,8 +355,8 @@ function renderStudio(){
  for(const p of printers)list.add(new Option(p.device.label+" — "+p.agent.agent_id+" ("+statusLabel(p.device)+")",printerKey(p)));
  list.value=printers.some(p=>printerKey(p)===old)?old:"";
  const p=printers.find(p=>printerKey(p)===chosen);
- text("studioPrinterStatus",p?(p.device.label+" on "+p.agent.agent_id+". "+statusLabel(p.device)+". Physical status must be confirmed at the printer."):"Choose a printer before submitting a test or custom print.");
- const disabled=!p||p.device.state==="disabled";
+ text("studioPrinterStatus",p?(p.device.label+" on "+p.agent.agent_id+". "+statusLabel(p.device)+". "+approvalLabel(p.device)+". Physical status must be confirmed at the printer."):"Choose a printer before submitting a test or custom print.");
+ const disabled=!p||p.device.state==="disabled"||p.device.allowed===false;
  for(const id of ["testPrint","printText","printDocument"])el(id).disabled=disabled||busy;
 }
 function renderJobs(){
@@ -354,6 +369,46 @@ function renderJobs(){
   fields.forEach((v,i)=>{const td=make("td",i===0?"mono":"",i===4?"":v);if(i===4)td.append(badge(j.status,j.status==="failed"?"bad":j.status==="accepted"?"ok":"warn"));tr.append(td)});
   target.append(tr);
  }
+}
+function renderDiagnostics(){
+ const report=diagnostics;
+ const results=el("diagnosticFindings");results.replaceChildren();
+ const rescans=el("rescanAgents");rescans.replaceChildren();
+ if(!report){text("diagnosticCondition","Not checked");text("diagnosticOnline","—");text("diagnosticIssues","—");text("diagnosticChecked","Not checked");return}
+ const attention=report.findings.filter(f=>f.severity==="attention").length;
+ text("diagnosticCondition",report.overall==="attention"?"Needs attention":"Observations ready");
+ text("diagnosticOnline",report.counts.online_stations+"/"+report.counts.stations);
+ text("diagnosticIssues",attention);
+ text("diagnosticChecked","Checked "+new Date(report.generated_at).toLocaleTimeString());
+ if(!report.findings.length)results.append(make("div","empty","No findings. Print output still needs physical verification."));
+ for(const finding of report.findings){
+  const card=make("div","callout"+(finding.severity==="attention"?" warn":""));
+  const hdr=make("div","row between"),title=make("strong",null,finding.title);
+  hdr.append(title,badge(finding.severity==="attention"?"Action suggested":"Information",finding.severity==="attention"?"warn":"ok"));
+  card.append(hdr,make("p","sub",finding.detail));
+  const bottom=make("div","row");bottom.style.marginTop="10px";
+  const action=make("a","link small",finding.action);action.href=finding.href;bottom.append(action);
+  if(finding.code==="no-inventory"||finding.code==="inventory-stale"){
+    const refreshButton=make("button","secondary small","Rescan this station");
+    refreshButton.type="button";
+    refreshButton.addEventListener("click",guarded(()=>requestRescan(finding.agent_id)));
+    bottom.append(refreshButton);
+  }
+  card.append(bottom);results.append(card);
+ }
+ const online=agents.filter(a=>a.online);
+ if(!online.length)rescans.append(make("p","sub","No online stations can be rescanned. Start your Agent first."));
+ for(const agent of online){
+  const btn=make("button","secondary","Rescan "+agent.agent_id);
+  btn.addEventListener("click",guarded(()=>requestRescan(agent.agent_id)));
+  rescans.append(btn);
+  rescans.append(make("p","sub","Inventory age: "+(agent.inventory_age_seconds===null?"Awaiting first scan":agent.inventory_age_seconds+" seconds")));
+ }
+}
+async function requestRescan(agentID){
+ if(!agentID)throw new Error("Select a connected station.");
+ const response=await api("/v1/agents/"+encodeURIComponent(agentID)+"/refresh",{method:"POST"});
+ notify(response.notice||"Agent refresh requested. Re-run diagnostics in a moment.");
 }
 function renderDevices(){
  const station=el("stationTable");station.replaceChildren();
@@ -374,14 +429,15 @@ function renderDevices(){
 }
 async function refresh(){
  if(!connected)return;
- const [a,j]=await Promise.all([api("/v1/agents"),api("/v1/jobs?limit=100")]);
- agents=a;jobs=j;
- renderPrinters();renderStudio();renderCounts();renderJobs();renderDevices();
+ const [a,j,d]=await Promise.all([api("/v1/agents"),api("/v1/jobs?limit=100"),api("/v1/diagnostics")]);
+ agents=a;jobs=j;diagnostics=d;
+ renderPrinters();renderStudio();renderCounts();renderJobs();renderDevices();renderDiagnostics();
 }
 function selection(){
  const p=printers.find(p=>printerKey(p)===chosen);
  if(!p)throw new Error("Select a connected printer first.");
  if(p.device.state==="disabled")throw new Error("That printer queue is disabled. No job submitted.");
+ if(p.device.allowed===false)throw new Error("This printer is not approved on its station. Approve it in the Mac app and restart the Agent.");
  return p;
 }
 function printOpts(){
@@ -489,7 +545,7 @@ async function logout(all){
  const r=await fetch(all?"/v1/sessions":"/v1/session",{
   method:"DELETE",credentials:"same-origin",headers:{"X-DeviceShare-CSRF":"1"},cache:"no-store"});
  if(!r.ok)throw new Error("Sign-out failed (HTTP "+r.status+").");
- connected=false;accountEmail="";agents=[];jobs=[];printers=[];lastToken="";text("newToken","No token issued this session.");el("copyToken").disabled=true;
+ connected=false;accountEmail="";agents=[];jobs=[];printers=[];diagnostics=null;lastToken="";text("newToken","No token issued this session.");el("copyToken").disabled=true;
  authState();renderPrinters();renderStudio();renderCounts();renderJobs();renderDevices();
  notify(all?"All remembered browser sessions revoked.":"Signed out this browser.");
 }
@@ -509,6 +565,21 @@ async function revoke(){
 route();authState();
 el("headerRefresh").addEventListener("click",guarded(async()=>{await refresh();notify("Station and print activity refreshed.")}));
 el("scanPrinters").addEventListener("click",guarded(refresh));
+el("refreshSelectedPrinter").addEventListener("click",guarded(async()=>{
+ const p=printers.find(item=>printerKey(item)===chosen);
+ if(!p)throw new Error("Choose a printer first.");
+ await requestRescan(p.agent.agent_id);
+}));
+el("runDiagnostics").addEventListener("click",guarded(async()=>{await refresh();notify("Diagnostics refreshed. Physical printer status remains unverified.")}));
+el("copyDiagnostics").addEventListener("click",guarded(async()=>{
+ if(!diagnostics)throw new Error("Run diagnostics first.");
+ const lines=["DeviceShare diagnostic summary","Generated: "+diagnostics.generated_at,
+ "Overall: "+diagnostics.overall,"Stations online: "+diagnostics.counts.online_stations+"/"+diagnostics.counts.stations,
+ "Printers discovered: "+diagnostics.counts.discovered_printers,
+ ...diagnostics.findings.map(f=>"["+f.severity+"] "+f.title+" — "+f.detail)];
+ await navigator.clipboard.writeText(lines.join("\n"));
+ notify("Diagnostic summary copied without credentials or print payloads.");
+}));
 el("refreshJobs").addEventListener("click",guarded(refresh));
 el("refreshDevices").addEventListener("click",guarded(refresh));
 el("goToStudio").addEventListener("click",()=>{location.href="/studio"});
