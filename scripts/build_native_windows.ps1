@@ -18,7 +18,7 @@ choco install innosetup --no-progress -y
 if ($LASTEXITCODE -ne 0) { throw 'Inno Setup installation failed.' }
 $inno = Join-Path ([Environment]::GetFolderPath('ProgramFilesX86')) 'Inno Setup 6\ISCC.exe'
 if (-not (Test-Path $inno)) { throw "Inno Setup compiler not found at $inno" }
-& $inno "/DSourceRoot=$root" '/DAppVersion=0.2.0-alpha.5' 'installers/windows/DeviceShare.iss'
+& $inno "/DSourceRoot=$root" '/DAppVersion=0.2.0-alpha.6' 'installers/windows/DeviceShare.iss'
 if ($LASTEXITCODE -ne 0) { throw 'Inno Setup EXE build failed.' }
 $msi = Join-Path $root 'release-assets\DeviceShare-windows-x64.msi'
 $setup = Join-Path $root 'release-assets\DeviceShare-Setup-windows-x64.exe'
