@@ -36,6 +36,27 @@ def load_config(path: str) -> dict:
             raise ValueError(f"{key} must be a list")
     return config
 
+def approved_inventory(devices: list[dict], config: dict) -> list[dict]:
+    """Mark only actual local allowlist approval; never send a credential."""
+    printers = set(config.get("allowed_printers", []))
+    ports = set(config.get("allowed_serial_ports", []))
+    hid = set(config.get("allowed_hid_devices", []))
+    result = []
+    for device in devices:
+        entry = dict(device)
+        did = str(entry.get("id", ""))
+        if did.startswith("printer:"):
+            entry["allowed"] = did.removeprefix("printer:") in printers
+        elif did.startswith("serial:"):
+            entry["allowed"] = did.removeprefix("serial:") in ports
+        elif did.startswith("hid:"):
+            entry["allowed"] = did in hid
+        elif did == "sim:printer":
+            entry["allowed"] = config.get("allow_simulator", True) is True
+        result.append(entry)
+    return result
+
+
 async def run(config: dict):
     agent_id = config.get("agent_id", "")
     token = os.getenv("DEVICESHARE_AGENT_TOKEN", "")
@@ -59,17 +80,29 @@ async def run(config: dict):
                 ping_interval=20,
                 ping_timeout=20,
             ) as socket:
+                refresh_requested = asyncio.Event()
+
                 async def refresh_inventory():
                     while True:
                         devices = await asyncio.to_thread(discover)
-                        await socket.send(json.dumps({"type": "inventory", "devices": devices}))
-                        await asyncio.sleep(30)
+                        inventory = approved_inventory(devices, config)
+                        await socket.send(json.dumps({"type": "inventory", "devices": inventory}))
+                        try:
+                            await asyncio.wait_for(refresh_requested.wait(), timeout=30)
+                            refresh_requested.clear()
+                        except asyncio.TimeoutError:
+                            pass
 
                 inventory_task = asyncio.create_task(refresh_inventory())
                 print("Connected to DeviceShare hub", flush=True)
                 try:
                     async for message in socket:
                         payload = json.loads(message)
+                        if payload.get("type") == "refresh_inventory":
+                            # Safe request only: re-enumerate local devices.
+                            # This does not enable hardware or run remote commands.
+                            refresh_requested.set()
+                            continue
                         if payload.get("type") != "job":
                             continue
                         job_id = payload.get("id", "")
