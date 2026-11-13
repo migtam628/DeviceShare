@@ -75,11 +75,11 @@ def test_finding_messages_cover_offline_approval_disabled_and_unknown():
 
 def test_cups_queue_acceptance_is_separate_from_enabled_state():
     accepted = SimpleNamespace(
-        returncode=0, stdout="HP accepting requests since Tue\\nZebra not accepting requests since Tue\\n")
+        returncode=0, stdout="HP accepting requests since Tue\nZebra not accepting requests since Tue\n")
     status = SimpleNamespace(
-        returncode=0, stdout="printer HP is idle. enabled since Tue\\nprinter Zebra is idle. enabled since Tue\\n")
-    with patch("deviceshare.discovery.platform.system", return_value="Darwin"), \\
-         patch("deviceshare.discovery.shutil.which", return_value="/usr/bin/lpstat"), \\
+        returncode=0, stdout="printer HP is idle. enabled since Tue\nprinter Zebra is idle. enabled since Tue\n")
+    with patch("deviceshare.discovery.platform.system", return_value="Darwin"), \
+         patch("deviceshare.discovery.shutil.which", return_value="/usr/bin/lpstat"), \
          patch("deviceshare.discovery.subprocess.run", side_effect=[accepted, status]):
         printers = [d for d in discover() if d.get("kind") == "printer"]
     by_name = {d["label"]: d for d in printers}
