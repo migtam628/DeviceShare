@@ -360,7 +360,9 @@ struct DeviceShareHome: View {
                                             .font(.headline)
                                         Text(printer.state == "disabled"
                                              ? "Queue disabled — do not submit jobs"
-                                             : "CUPS queue available — physical status not verified")
+                                             : printer.accepting == false
+                                               ? "Queue not accepting new print jobs"
+                                               : "Queue available — physical status not verified")
                                             .font(.caption)
                                             .foregroundStyle(printer.state == "disabled" ? Color.orange : Color.secondary)
                                         Text(printer.id)
@@ -386,12 +388,12 @@ struct DeviceShareHome: View {
                                     Button(controller.selectedPrinterID == printer.id ? "Selected" : "Select printer") {
                                         controller.choosePrinter(printer.id)
                                     }
-                                    .disabled(printer.state == "disabled")
+                                    .disabled(printer.state == "disabled" || printer.accepting == false)
                                     Button("Open Print Studio") {
                                         controller.choosePrinter(printer.id)
                                         currentTab = .studio
                                     }
-                                    .disabled(printer.state == "disabled")
+                                    .disabled(printer.state == "disabled" || printer.accepting == false)
                                     .buttonStyle(.borderedProminent)
                                 }
                             }
