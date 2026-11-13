@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.0-alpha.6 — Diagnostics and Printer Center (in development)
+## v0.2.0-alpha.6 — Diagnostics and Printer Center (2026-11-12)
 
 - Added actionable station and printer diagnostics for offline agents, stale inventory, missing local approvals, disabled/non-accepting queues, and uncertain/failed jobs.
 - Added authenticated, rate-limited inventory refresh to the live Agent; never runs commands or replays print jobs.
