@@ -401,6 +401,8 @@ def create_app(
             raise HTTPException(status_code=409, detail="Selected CUPS queue is disabled. No job created.")
         if printer.get("allowed") is False:
             raise HTTPException(status_code=409, detail="Printer is not approved on the station. Approve it locally and restart the Agent.")
+        if printer.get("accepting") is False:
+            raise HTTPException(status_code=409, detail="Printer queue is not accepting jobs. Check its OS printer settings.")
         if len(pdf_data) > 1024 * 1024:
             raise HTTPException(status_code=422, detail="Generated PDF exceeds 1 MiB")
         job = JobCreate(
@@ -466,7 +468,8 @@ def create_app(
                             {"id": str(d["id"])[:300], "kind": str(d.get("kind", ""))[:40],
                              "label": str(d.get("label", ""))[:200],
                              "state": str(d.get("state", "unknown"))[:32],
-                             "allowed": d["allowed"] if type(d.get("allowed")) is bool else None}
+                             "allowed": d["allowed"] if type(d.get("allowed")) is bool else None,
+                             "accepting": d["accepting"] if type(d.get("accepting")) is bool else None}
                             for d in raw[:200]
                             if isinstance(d, dict) and isinstance(d.get("id"), str)
                         ]
