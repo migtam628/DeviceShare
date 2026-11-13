@@ -266,6 +266,7 @@ const notify=(value,bad=false)=>{const t=el("toast");t.hidden=false;t.textConten
 const badge=(value,kind)=>make("span","badge "+(kind||""),value);
 const statusLabel=d=>d.state==="disabled"?"Queue disabled":d.state==="enabled"?"Queue enabled · physical status unverified":"Queue status unknown";
 const approvalLabel=d=>d.allowed===true?"Locally approved":d.allowed===false?"Approval required":"Approval not reported";
+const queueLabel=d=>d.accepting===false?"Not accepting new jobs":d.accepting===true?"Accepting jobs":"Accepting status unknown";
 function showAuthGate(){
  el("authGate").hidden=connected;
  el("workspaceContent").hidden=!connected;
@@ -340,13 +341,13 @@ function renderPrinters(){
   const hdr=make("div","row"),ic=make("span","printer-icon","▣"),names=make("div");
   names.append(make("strong",null,p.device.label||p.device.id),make("div","sub",p.agent.agent_id));
   hdr.append(ic,names);
-  const lower=make("div","row between");lower.append(badge(statusLabel(p.device),p.device.state==="disabled"?"bad":"warn"),badge(approvalLabel(p.device),p.device.allowed===true?"ok":p.device.allowed===false?"bad":"warn"),make("span","small sub",chosen===value?"Selected":"Choose ›"));
+  const lower=make("div","row between");lower.append(badge(statusLabel(p.device),p.device.state==="disabled"?"bad":"warn"),badge(approvalLabel(p.device),p.device.allowed===true?"ok":p.device.allowed===false?"bad":"warn"),badge(queueLabel(p.device),p.device.accepting===false?"bad":"warn"),make("span","small sub",chosen===value?"Selected":"Choose ›"));
   card.append(hdr,lower);card.addEventListener("click",()=>{chosen=value;localStorage.setItem("deviceshare_printer",value);renderPrinters();renderStudio();});
   grid.append(card);
  }
  const p=printers.find(p=>printerKey(p)===chosen);
- text("printerDetail",p?(p.device.label+" · Station "+p.agent.agent_id+" · "+statusLabel(p.device)+" · "+approvalLabel(p.device)):"Choose a printer card to begin.");
- el("goToStudio").disabled=!p||p.device.state==="disabled"||p.device.allowed===false;
+ text("printerDetail",p?(p.device.label+" · Station "+p.agent.agent_id+" · "+statusLabel(p.device)+" · "+approvalLabel(p.device)+" · "+queueLabel(p.device)):"Choose a printer card to begin.");
+ el("goToStudio").disabled=!p||p.device.state==="disabled"||p.device.allowed===false||p.device.accepting===false;
  el("refreshSelectedPrinter").disabled=!p;
 }
 function renderStudio(){
@@ -355,8 +356,8 @@ function renderStudio(){
  for(const p of printers)list.add(new Option(p.device.label+" — "+p.agent.agent_id+" ("+statusLabel(p.device)+")",printerKey(p)));
  list.value=printers.some(p=>printerKey(p)===old)?old:"";
  const p=printers.find(p=>printerKey(p)===chosen);
- text("studioPrinterStatus",p?(p.device.label+" on "+p.agent.agent_id+". "+statusLabel(p.device)+". "+approvalLabel(p.device)+". Physical status must be confirmed at the printer."):"Choose a printer before submitting a test or custom print.");
- const disabled=!p||p.device.state==="disabled"||p.device.allowed===false;
+ text("studioPrinterStatus",p?(p.device.label+" on "+p.agent.agent_id+". "+statusLabel(p.device)+". "+approvalLabel(p.device)+". "+queueLabel(p.device)+". Physical status must be confirmed at the printer."):"Choose a printer before submitting a test or custom print.");
+ const disabled=!p||p.device.state==="disabled"||p.device.allowed===false||p.device.accepting===false;
  for(const id of ["testPrint","printText","printDocument"])el(id).disabled=disabled||busy;
 }
 function renderJobs(){
@@ -402,7 +403,7 @@ function renderDiagnostics(){
   const btn=make("button","secondary","Rescan "+agent.agent_id);
   btn.addEventListener("click",guarded(()=>requestRescan(agent.agent_id)));
   rescans.append(btn);
-  rescans.append(make("p","sub","Inventory age: "+(agent.inventory_age_seconds===null?"Awaiting first scan":agent.inventory_age_seconds+" seconds")));
+  rescans.append(make("p","sub","Inventory age: "+(agent.inventory_age_seconds==null?"Awaiting first scan":agent.inventory_age_seconds+" seconds")));
  }
 }
 async function requestRescan(agentID){
@@ -438,6 +439,7 @@ function selection(){
  if(!p)throw new Error("Select a connected printer first.");
  if(p.device.state==="disabled")throw new Error("That printer queue is disabled. No job submitted.");
  if(p.device.allowed===false)throw new Error("This printer is not approved on its station. Approve it in the Mac app and restart the Agent.");
+ if(p.device.accepting===false)throw new Error("The operating-system queue is not accepting print jobs. Check the queue before submitting.");
  return p;
 }
 function printOpts(){
