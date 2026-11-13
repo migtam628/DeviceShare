@@ -1,5 +1,5 @@
 name: Build GitHub Release
-# Alpha.5: require all four native targets and deterministic macOS payload validation.
+# Alpha.6: gate diagnostics, app builds, native installer integrity and checksums.
 
 on:
   push:
@@ -20,7 +20,7 @@ permissions:
 
 env:
   # Future releases are explicit version tags or an intentional manual dispatch.
-  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2.0-alpha.5' }}
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v0.2.0-alpha.6' }}
 
 jobs:
   test:
@@ -112,7 +112,7 @@ jobs:
             DeviceShare-macos-arm64.dmg \
             DeviceShare-macos-x64.pkg \
             DeviceShare-macos-x64.dmg \
-            DeviceShare_0.2.0.alpha5_amd64.deb; do
+            DeviceShare_0.2.0.alpha6_amd64.deb; do
             test -s "$package" || { echo "Missing release asset $package"; exit 1; }
           done
           sha256sum DeviceShare* > SHA256SUMS.txt
@@ -129,5 +129,5 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "DeviceShare ${RELEASE_TAG}" \
-            --notes "DeviceShare alpha.5 guided activation: email/password owner sign-in, automatic host-protected first-run setup from the Mac app, persistent revocable browser sessions, password change/recovery codes and login throttling. Native DeviceShare.app now provides a four-stage activation checklist and verifies actual Hub WebSocket station status rather than only launchd registration. Existing station tokens and print history are preserved. Includes macOS PKG/DMG for Apple Silicon and Intel, Windows MSI/Setup EXE, Linux DEB and portable ZIPs. Packages remain unsigned/unnotarized alpha builds; verify SHA256SUMS and test real printing before production use. Setup guide: docs/AUTH_SETUP.md." \
+            --notes "DeviceShare alpha.6 Diagnostics and Printer Center: actionable issues for offline stations, stale inventories, disabled or non-accepting CUPS queues, missing local approvals, and uncertain or failed jobs; safe, rate-limited authenticated device refresh; web diagnostics with redacted support summary and native macOS diagnostics. Queue state does NOT prove physical paper output and unknown jobs are never automatically retried. Prior alpha.5 user acceptance verified email login, agent reconnection, physical test page and browser session persistence. Other hardware models, full reboot tests, signing and notarization remain outstanding. Ships Apple Silicon/Intel Mac PKG and DMG, Windows MSI and EXE, Debian/Ubuntu DEB and portable ZIPs. Verify SHA256SUMS.txt; see docs/DIAGNOSTICS.md." \
             --prerelease
