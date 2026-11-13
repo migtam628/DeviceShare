@@ -1,5 +1,9 @@
 """Alpha.6 diagnostics never operate hardware or infer physical print completion."""
 import time
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from deviceshare.discovery import discover
 
 from fastapi.testclient import TestClient
 
@@ -67,6 +71,31 @@ def test_finding_messages_cover_offline_approval_disabled_and_unknown():
     assert report["overall"] == "attention"
     assert "paper" in report["disclaimer"]
     assert "automatically retry" in " ".join(f["detail"] for f in report["findings"])
+
+
+def test_cups_queue_acceptance_is_separate_from_enabled_state():
+    accepted = SimpleNamespace(
+        returncode=0, stdout="HP accepting requests since Tue\\nZebra not accepting requests since Tue\\n")
+    status = SimpleNamespace(
+        returncode=0, stdout="printer HP is idle. enabled since Tue\\nprinter Zebra is idle. enabled since Tue\\n")
+    with patch("deviceshare.discovery.platform.system", return_value="Darwin"), \\
+         patch("deviceshare.discovery.shutil.which", return_value="/usr/bin/lpstat"), \\
+         patch("deviceshare.discovery.subprocess.run", side_effect=[accepted, status]):
+        printers = [d for d in discover() if d.get("kind") == "printer"]
+    by_name = {d["label"]: d for d in printers}
+    assert by_name["HP"]["state"] == "enabled"
+    assert by_name["HP"]["accepting"] is True
+    assert by_name["Zebra"]["state"] == "enabled"
+    assert by_name["Zebra"]["accepting"] is False
+
+
+def test_diagnostics_identifies_nonaccepting_queue():
+    report = build_diagnostics([
+        {"agent_id": "mac", "online": True, "inventory_age_seconds": 5,
+         "devices": [{"id": "printer:Zebra", "kind": "printer",
+                      "state": "enabled", "accepting": False, "allowed": True}]}
+    ], [])
+    assert any(item["code"] == "printer-not-accepting" for item in report["findings"])
 
 
 def test_online_station_not_physical_printer_proof():
