@@ -11,6 +11,7 @@ struct LocalPeripheral: Codable, Identifiable {
     let kind: String
     let label: String
     let state: String?
+    let accepting: Bool?
 
     var canApprove: Bool {
         id.hasPrefix("printer:") || id.hasPrefix("serial:") || id.hasPrefix("hid:")
@@ -110,7 +111,7 @@ final class DeviceShareController: ObservableObject {
             let hidNames = config["allowed_hid_devices"] as? [String] ?? []
             approvals = Set(printerNames.map { "printer:" + $0 }
                 + serialNames.map { "serial:" + $0 } + hidNames)
-            peripherals = approvals.sorted().map { LocalPeripheral(id: $0, kind: "saved", label: $0 + " (previously approved)", state: nil) }
+            peripherals = approvals.sorted().map { LocalPeripheral(id: $0, kind: "saved", label: $0 + " (previously approved)", state: nil, accepting: nil) }
         }
     }
 
@@ -488,7 +489,7 @@ final class DeviceShareController: ObservableObject {
                     result.append(device)
                 }
                 for id in approvals.sorted() where !seen.contains(id) {
-                    result.append(LocalPeripheral(id: id, kind: "saved", label: id + " (offline / approved)", state: nil))
+                    result.append(LocalPeripheral(id: id, kind: "saved", label: id + " (offline / approved)", state: nil, accepting: nil))
                 }
                 peripherals = result.sorted { $0.kind + $0.label < $1.kind + $1.label }
                 notice = "Discovered \(live.count) peripheral entries. Only checked devices receive local approval."
@@ -508,7 +509,7 @@ final class DeviceShareController: ObservableObject {
 
     var printerReady: Bool {
         guard let printer = selectedPrinter else { return false }
-        return printer.state != "disabled" && approvals.contains(printer.id) && hasToken
+        return printer.state != "disabled" && printer.accepting != false && approvals.contains(printer.id) && hasToken
     }
 
     func choosePrinter(_ id: String) {
