@@ -17,6 +17,25 @@ struct LocalPeripheral: Codable, Identifiable {
     }
 }
 
+struct HubFinding: Decodable, Identifiable {
+    let code: String
+    let severity: String
+    let title: String
+    let detail: String
+    let action: String
+    let href: String
+    let agent_id: String
+    let device_id: String
+
+    var id: String { code + ":" + agent_id + ":" + device_id }
+}
+
+struct HubDiagnosticReport: Decodable {
+    let overall: String
+    let findings: [HubFinding]
+    let counts: [String: Int]
+}
+
 @MainActor
 final class DeviceShareController: ObservableObject {
     @Published var hubURL = "http://127.0.0.1:8765"
@@ -27,6 +46,9 @@ final class DeviceShareController: ObservableObject {
     @Published var manualToken = ""
     @Published var peripherals: [LocalPeripheral] = []
     @Published var approvals = Set<String>()
+    @Published var hubDiagnostics: HubDiagnosticReport?
+    @Published var diagnosticMessage = "Run checks to see current station and printer status."
+    @Published var isCheckingDiagnostics = false
     @Published var hubHealth = "Not checked"
     @Published var agentState = "Stopped"
     @Published var localHubState = "Stopped"
@@ -833,6 +855,82 @@ final class DeviceShareController: ObservableObject {
             notice = "Station agent stopped. Your local configuration and credentials remain saved."
             refreshServices()
         } catch { notice = error.localizedDescription }
+    }
+
+    func openDiagnosticsConsole() {
+        do {
+            let url = try validatedHubURL().appendingPathComponent("diagnostics")
+            NSWorkspace.shared.open(url)
+        } catch { notice = error.localizedDescription }
+    }
+
+    func checkDiagnostics() {
+        guard !isCheckingDiagnostics else { return }
+        isCheckingDiagnostics = true
+        diagnosticMessage = "Checking live station and printer state…"
+        Task {
+            defer { isCheckingDiagnostics = false }
+            do {
+                let hub = try validatedHubURL()
+                let key = localHubKey(for: hub)
+                    ?? rememberedKey(for: hub)
+                    ?? adminAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard key.count >= 16 else {
+                    throw NSError(domain: "DeviceShare", code: 190,
+                        userInfo: [NSLocalizedDescriptionKey:
+                            "Unable to verify a remote Hub without its integration key. Check Keychain settings or sign in through the web console."])
+                }
+                var request = URLRequest(url: hub.appendingPathComponent("v1/diagnostics"))
+                request.setValue(key, forHTTPHeaderField: "X-API-Key")
+                request.timeoutInterval = 10
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                    throw NSError(domain: "DeviceShare", code: 191,
+                        userInfo: [NSLocalizedDescriptionKey: "Hub diagnostics endpoint is unavailable. Upgrade the Hub and check its service status."])
+                }
+                let report = try JSONDecoder().decode(HubDiagnosticReport.self, from: data)
+                hubDiagnostics = report
+                let attention = report.findings.filter { $0.severity == "attention" }.count
+                diagnosticMessage = attention == 0
+                    ? "No configuration issues detected. Physical printer output is not verified by this check."
+                    : "\(attention) diagnostic finding(s) need review. No automatic repair has been performed."
+            } catch {
+                hubDiagnostics = nil
+                diagnosticMessage = error.localizedDescription
+            }
+        }
+    }
+
+    func requestLocalInventoryRescan() {
+        Task {
+            do {
+                let hub = try validatedHubURL()
+                let key = localHubKey(for: hub) ?? rememberedKey(for: hub)
+                    ?? adminAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard key.count >= 16 else {
+                    throw NSError(domain: "DeviceShare", code: 192,
+                        userInfo: [NSLocalizedDescriptionKey: "Hub integration key is unavailable."])
+                }
+                let encoded = stationID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? stationID
+                let url = hub.appendingPathComponent("v1/agents/" + encoded + "/refresh")
+                var request = URLRequest(url: url)
+                request.httpMethod = "POST"
+                request.setValue(key, forHTTPHeaderField: "X-API-Key")
+                request.timeoutInterval = 10
+                let (data, response) = try await URLSession.shared.data(for: request)
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                guard status == 200 else {
+                    var message = "Station inventory refresh failed (HTTP \(status))."
+                    if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let reason = json["detail"] as? String { message = reason }
+                    throw NSError(domain: "DeviceShare", code: status,
+                        userInfo: [NSLocalizedDescriptionKey: message])
+                }
+                diagnosticMessage = "Safe inventory rescan requested. Re-run checks to see updated results."
+            } catch {
+                diagnosticMessage = error.localizedDescription
+            }
+        }
     }
 
     func openDashboard() {
