@@ -1,4 +1,4 @@
-# Account activation and email/password sign-in (alpha.5)
+# Account activation and email/password sign-in (alpha.5 and later)
 
 DeviceShare has two different kinds of credentials:
 
