@@ -1,4 +1,4 @@
-# DeviceShare.app for macOS (v0.2.0-alpha.4)
+# DeviceShare.app for macOS (v0.2.0-alpha.6)
 
 DeviceShare now has a **native SwiftUI management window** in
 `/Applications/DeviceShare.app`. This is an alpha; it has no Apple Developer
@@ -29,7 +29,7 @@ USB drivers, blanket printer access or automatic start of its network services.
 - The default hub remains local; the app does not expose it remotely
   or configure TLS on your behalf.
 
-## Selecting printers and running test prints (alpha.5)
+## Selecting printers and running test prints (alpha.6)
 
 DeviceShare.app uses a sidebar with separate **Printers**, **Print Studio**, **Local Devices**, **Services** and **Settings** sections.
 
@@ -42,6 +42,14 @@ DeviceShare.app uses a sidebar with separate **Printers**, **Print Studio**, **L
 CUPS `lpstat -p` reports queue state, whereas network/USB hardware can still be offline. Check your HP ENVY's queue and physical connection before repeatedly submitting print jobs.
 
 The **Settings** tab can generate a short-lived account recovery code and optionally keep a remote integration key in macOS **Keychain** (not in agent.json). The local Hub keeps its internal key in a private file. The web dashboard uses email/password sign-in and can remember a revocable browser session without storing the password or raw machine key in localStorage.
+
+## Diagnosing offline agents and print queues (alpha.6)
+
+Under **Diagnostics**, select **Run Checks**. The Mac app reads Hub findings and can request a safe device inventory rescan. It does not approve hardware, rotate tokens, or resend uncertain print jobs.
+
+This distinguishes a registered service from an actually connected Agent; an enabled CUPS queue from a queue accepting new requests; and a spooler-accepted job from physical paper output.
+
+See the [Diagnostics guide](DIAGNOSTICS.md) and the browser **Diagnostics** screen for more detail.
 
 ## Device approval model
 
