@@ -34,12 +34,20 @@ def discover() -> list[dict[str, str]]:
                             queue_states[parts[1]] = ("disabled" if " disabled " in " " + line + " " else "enabled")
             if accepting.returncode == 0:
                 for line in accepting.stdout.splitlines():
-                    name = line.split(" ", 1)[0].strip()
+                    name, _, status = line.partition(" ")
+                    name = name.strip()
                     if name:
+                        status_lower = status.lower().strip()
+                        accepting_jobs = (
+                            False if status_lower.startswith("not accepting")
+                            else True if status_lower.startswith("accepting") else None
+                        )
                         devices.append({
                             "id": f"printer:{name}", "kind": "printer", "label": name,
-                            # Enabled is CUPS queue state, NOT proof of physical availability.
+                            # CUPS queue state and whether it accepts jobs are
+                            # distinct from physical device connectivity.
                             "state": queue_states.get(name, "unknown"),
+                            "accepting": accepting_jobs,
                         })
         except (OSError, subprocess.TimeoutExpired):
             pass
