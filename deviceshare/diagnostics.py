@@ -83,6 +83,13 @@ def build_diagnostics(
                     "printer settings before resubmitting a job.",
                     "View printer", "/printers", agent_id=aid, device_id=did,
                 )
+            if device.get("accepting") is False:
+                add(
+                    "printer-not-accepting", "attention", "Queue rejecting new jobs: " + label,
+                    "The CUPS queue is not accepting print requests. Check the operating "
+                    "system's queue settings and pending jobs before resubmitting.",
+                    "View printer", "/printers", agent_id=aid, device_id=did,
+                )
             if device.get("allowed") is False:
                 add(
                     "printer-unapproved", "attention", "Printer not approved: " + label,
