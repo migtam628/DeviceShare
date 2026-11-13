@@ -9,6 +9,7 @@ import json
 import os
 import re
 import secrets
+import time
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any
@@ -20,6 +21,7 @@ from fastapi.security import APIKeyHeader
 from urllib.parse import urlsplit
 
 from .models import JobCreate
+from .diagnostics import build_diagnostics
 from .printing import PrintSubmission, TextSubmission, render_pdf
 from .store import Store
 
@@ -29,6 +31,8 @@ auth_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 class AgentConnection:
     ws: WebSocket
     devices: list[dict[str, Any]] = field(default_factory=list)
+    last_inventory_monotonic: float | None = None
+    last_refresh_request: float = 0.0
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     dispatch_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
@@ -282,6 +286,7 @@ def create_app(
     @app.get("/studio", response_class=HTMLResponse, include_in_schema=False)
     @app.get("/jobs", response_class=HTMLResponse, include_in_schema=False)
     @app.get("/devices", response_class=HTMLResponse, include_in_schema=False)
+    @app.get("/diagnostics", response_class=HTMLResponse, include_in_schema=False)
     @app.get("/settings", response_class=HTMLResponse, include_in_schema=False)
     async def console_ui():
         return HTMLResponse(
@@ -311,12 +316,38 @@ def create_app(
                 "agent_id": agent_id,
                 "online": agent_id in clients,
                 "devices": clients[agent_id].devices if agent_id in clients else [],
+                "inventory_age_seconds": round(max(0, time.monotonic() - clients[agent_id].last_inventory_monotonic), 1)
+                    if agent_id in clients and clients[agent_id].last_inventory_monotonic is not None else None,
                 "credential_status": (
                     "revoked" if paired[agent_id]["revoked_at"] else "paired"
                 ) if agent_id in paired else "legacy / unpaired",
             }
             for agent_id in identifiers
         ]
+
+    @app.get("/v1/diagnostics", dependencies=[Depends(require_api_key)])
+    async def diagnostics():
+        # Use the same live state as station/printer views; never fetch credentials.
+        station_status = await agents()
+        return build_diagnostics(station_status, store.list(limit=100))
+
+    @app.post("/v1/agents/{agent_id}/refresh", dependencies=[Depends(require_api_key)])
+    async def refresh_agent_inventory(agent_id: str):
+        if not re.fullmatch(r"[a-zA-Z0-9_.-]{1,80}", agent_id):
+            raise HTTPException(status_code=422, detail="Invalid station ID")
+        connection = clients.get(agent_id)
+        if connection is None:
+            raise HTTPException(status_code=409, detail="Station is offline. Start its local Agent first.")
+        current = time.monotonic()
+        if current - connection.last_refresh_request < 10:
+            raise HTTPException(status_code=429, detail="Wait 10 seconds between inventory refreshes.")
+        connection.last_refresh_request = current
+        try:
+            await connection.send({"type": "refresh_inventory"})
+        except Exception as exc:
+            raise HTTPException(status_code=503, detail="Could not reach the station Agent.") from exc
+        return {"requested": True, "agent_id": agent_id,
+                "notice": "Agent is rescanning devices. Refresh diagnostics to inspect the new inventory."}
 
     @app.post("/v1/agents/{agent_id}/credential", dependencies=[Depends(require_api_key)])
     async def issue_credential(agent_id: str):
@@ -368,6 +399,8 @@ def create_app(
             raise HTTPException(status_code=409, detail="Printer not found in live station inventory. No job created.")
         if printer.get("state") == "disabled":
             raise HTTPException(status_code=409, detail="Selected CUPS queue is disabled. No job created.")
+        if printer.get("allowed") is False:
+            raise HTTPException(status_code=409, detail="Printer is not approved on the station. Approve it locally and restart the Agent.")
         if len(pdf_data) > 1024 * 1024:
             raise HTTPException(status_code=422, detail="Generated PDF exceeds 1 MiB")
         job = JobCreate(
@@ -432,10 +465,12 @@ def create_app(
                         link.devices = [
                             {"id": str(d["id"])[:300], "kind": str(d.get("kind", ""))[:40],
                              "label": str(d.get("label", ""))[:200],
-                             "state": str(d.get("state", "unknown"))[:32]}
+                             "state": str(d.get("state", "unknown"))[:32],
+                             "allowed": d["allowed"] if type(d.get("allowed")) is bool else None}
                             for d in raw[:200]
                             if isinstance(d, dict) and isinstance(d.get("id"), str)
                         ]
+                        link.last_inventory_monotonic = time.monotonic()
                 elif msg.get("type") == "result" and isinstance(msg.get("id"), str):
                     successful = msg.get("success") is True
                     detail = msg.get("detail", {})
