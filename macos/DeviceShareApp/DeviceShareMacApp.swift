@@ -47,7 +47,7 @@ struct DeviceShareHome: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
-                    Text("v0.2.0-alpha.5").font(.caption.monospacedDigit())
+                    Text("v0.2.0-alpha.6").font(.caption.monospacedDigit())
                     Text("Agent: " + controller.agentState)
                         .font(.caption).foregroundStyle(.secondary)
                 }
