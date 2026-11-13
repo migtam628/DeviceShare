@@ -15,7 +15,7 @@ install -m 0644 docs/INSTALL_NATIVE.md "$staging/usr/share/doc/deviceshare/INSTA
 install -m 0644 SECURITY.md "$staging/usr/share/doc/deviceshare/SECURITY.md"
 cat > "$staging/DEBIAN/control" <<'CONTROL'
 Package: deviceshare
-Version: 0.2.0~alpha5
+Version: 0.2.0~alpha6
 Section: utils
 Priority: optional
 Architecture: amd64
@@ -27,7 +27,7 @@ Description: DeviceShare local and remote peripheral bridge
 Homepage: https://github.com/migtam628/DeviceShare
 CONTROL
 mkdir -p release-assets
-deb="release-assets/DeviceShare_0.2.0.alpha5_amd64.deb"
+deb="release-assets/DeviceShare_0.2.0.alpha6_amd64.deb"
 dpkg-deb --root-owner-group --build "$staging" "$deb"
 dpkg-deb --info "$deb"
 dpkg-deb --contents "$deb" | grep -E 'usr/bin/deviceshare-(agent|hub)'
