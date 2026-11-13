@@ -12,7 +12,7 @@ AGENT = "long-print-integration-test-agent-token"
 def test_preview_pages_and_print_studio_dispatch(tmp_path):
     app = create_app(store_path=str(tmp_path / "hub.db"), api_key=ADMIN, agent_token=AGENT)
     with TestClient(app) as client:
-        for route in ("/dashboard", "/printers", "/studio", "/jobs", "/devices", "/settings"):
+        for route in ("/dashboard", "/printers", "/studio", "/jobs", "/devices", "/diagnostics", "/settings"):
             response = client.get(route)
             assert response.status_code == 200
             assert "DeviceShare Console" in response.text
