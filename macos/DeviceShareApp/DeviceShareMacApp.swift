@@ -27,6 +27,7 @@ struct DeviceShareHome: View {
         case printers = "Printers"
         case studio = "Print Studio"
         case devices = "Local Devices"
+        case diagnostics = "Diagnostics"
         case services = "Services"
         case settings = "Settings"
     }
@@ -131,6 +132,7 @@ struct DeviceShareHome: View {
         case .printers: return "printer"
         case .studio: return "doc.text"
         case .devices: return "cable.connector"
+        case .diagnostics: return "stethoscope"
         case .services: return "bolt.horizontal.circle"
         case .settings: return "gearshape"
         }
@@ -143,6 +145,7 @@ struct DeviceShareHome: View {
         case .printers: printerPanel
         case .studio: studioPanel
         case .devices: devicePanel
+        case .diagnostics: diagnosticsPanel
         case .services: servicesPanel
         case .settings: settingsPanel
         }
@@ -619,6 +622,109 @@ struct DeviceShareHome: View {
         if device.id.hasPrefix("hid:") { return "keyboard" }
         if device.id.hasPrefix("usb:") { return "externaldrive" }
         return "circle.dotted.circle"
+    }
+
+    private var diagnosticsPanel: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Diagnostics").font(.title2.bold())
+                        Text("Check the Hub, station connection and printer queues without changing credentials or sending a print job.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Button {
+                        controller.checkDiagnostics()
+                    } label: {
+                        Label("Run Checks", systemImage: "arrow.clockwise")
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(controller.isCheckingDiagnostics)
+                }
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Live connection").font(.headline)
+                        HStack {
+                            Label(controller.hubHealth, systemImage: "server.rack")
+                                .foregroundStyle(controller.hubHealth == "Hub responding" ? Color.green : Color.secondary)
+                            Spacer()
+                            Label(controller.agentState, systemImage: "antenna.radiowaves.left.and.right")
+                                .foregroundStyle(controller.agentConnected ? Color.green : Color.orange)
+                        }
+                        Text(controller.diagnosticMessage)
+                            .font(.callout).foregroundStyle(.secondary)
+                            .textSelection(.enabled)
+                        HStack {
+                            Button("Refresh Service State") { controller.refreshServices() }
+                            Button("Rescan Station Devices") { controller.requestLocalInventoryRescan() }
+                                .disabled(!controller.agentConnected)
+                            Spacer()
+                            Button("Open Full Diagnostics") { controller.openDiagnosticsConsole() }
+                        }
+                        Text("A safe rescan only re-enumerates devices. It does not approve any hardware or replay print jobs.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                GroupBox {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Text("Recommended actions").font(.headline)
+                            Spacer()
+                            if let report = controller.hubDiagnostics {
+                                Text(report.findings.filter { $0.severity == "attention" }.count == 0
+                                     ? "No configuration warnings" : "Review required")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        if let report = controller.hubDiagnostics {
+                            if report.findings.isEmpty {
+                                Text("No problems were reported. Confirm physical printing separately.")
+                                    .font(.callout).foregroundStyle(.secondary)
+                            } else {
+                                ForEach(report.findings) { finding in
+                                    VStack(alignment: .leading, spacing: 7) {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: finding.severity == "attention" ? "exclamationmark.triangle.fill" : "info.circle")
+                                                .foregroundStyle(finding.severity == "attention" ? Color.orange : Color.secondary)
+                                            Text(finding.title).font(.subheadline.bold())
+                                            Spacer()
+                                        }
+                                        Text(finding.detail)
+                                            .font(.callout)
+                                            .foregroundStyle(.secondary)
+                                            .textSelection(.enabled)
+                                    }
+                                    .padding(12)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 9))
+                                }
+                            }
+                        } else {
+                            VStack(spacing: 8) {
+                                Image(systemName: "checkmark.shield")
+                                    .font(.largeTitle).foregroundStyle(.secondary)
+                                Text("Run Checks to inspect your setup")
+                                    .font(.headline)
+                                Text("You'll get specific next steps for offline stations, missing approvals, disabled queues and uncertain jobs.")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(26)
+                        }
+                    }
+                }
+                Text("An accepted spooler job is not proof a physical page was printed. Never blindly resend a job with an unknown outcome.")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+            .padding(12)
+        }
+        .onAppear {
+            controller.refreshServices()
+            controller.checkDiagnostics()
+        }
     }
 
     private var settingsPanel: some View {
