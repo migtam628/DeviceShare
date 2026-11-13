@@ -151,7 +151,7 @@ Do not bypass organizational device policies to run it.
 Install:
 
 ```bash
-sudo apt install ./DeviceShare_0.2.0.alpha5_amd64.deb
+sudo apt install ./DeviceShare_0.2.0.alpha6_amd64.deb
 deviceshare-agent --version
 deviceshare-hub --version
 ```
