@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.0-alpha.6 — Diagnostics and Printer Center (in development)
+
+- Added actionable station and printer diagnostics for offline agents, stale inventory, missing local approvals, disabled/non-accepting queues, and uncertain/failed jobs.
+- Added authenticated, rate-limited inventory refresh to the live Agent; never runs commands or replays print jobs.
+- Added approved/accepting queue states to the Hub, printer selection and safeguards.
+- Added web Diagnostics screen with safe station rescans and redacted support summary.
+- Added native macOS Diagnostics section with live Hub findings, service status and station rescan.
+- Added automated checks for approval flags, connection states, CUPS metadata and CSRF.
+- Mac mini user confirmed alpha.5 activation, Agent reconnection, physical test printing and remembered browser login. Hardware-specific acceptance remains open.
+
 ## v0.2.0-alpha.5 — Guided activation and owner sign-in (2026-11-11)
 
 - Replaced the Console's administrator API-key sign-in form with email and password, including a first-run activation gate, account recovery and setup-progress checklist.
