@@ -56,6 +56,7 @@ final class DeviceShareController: ObservableObject {
     @Published var notice = "Choose a local hub or enter the URL of a trusted remote hub."
     @Published var agentConnected = false
     @Published var agentConnectivityNote = "Station connection not checked"
+    @Published var legacyAgentDetected = false
     @Published var adminActivated = false
     @Published var adminSetupEmail = ""
     @Published var adminSetupPassword = ""
@@ -76,6 +77,7 @@ final class DeviceShareController: ObservableObject {
 
     private let agentLabel = "com.mttechservices.deviceshare.agent"
     private let hubLabel = "com.mttechservices.deviceshare.hub"
+    private let legacyAgentLabel = "com.deviceshare.agent"
 
     private var supportURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -677,6 +679,7 @@ final class DeviceShareController: ObservableObject {
         agentState = isLoaded(agentLabel) ? "Checking connection…" : "Stopped"
         agentConnected = false
         localHubState = isLoaded(hubLabel) ? "Local hub service loaded" : "Stopped"
+        legacyAgentDetected = isLoaded(legacyAgentLabel)
         objectWillChange.send()
         checkHubHealth()
         checkAgentConnection()
@@ -847,6 +850,12 @@ final class DeviceShareController: ObservableObject {
                                    arguments: ["--config", configURL.path])
             notice = "Station agent enabled for this user session. Check the hub dashboard for connection status."
             refreshServices()
+            // launchd may start the service after the initial status request.
+            // Recheck once without restarting the Agent or resending any job.
+            Task {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                checkAgentConnection()
+            }
         } catch { notice = error.localizedDescription }
     }
 

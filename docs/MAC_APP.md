@@ -1,4 +1,4 @@
-# DeviceShare.app for macOS (v0.2.0-alpha.6)
+# DeviceShare.app for macOS (v0.2.0-alpha.7)
 
 DeviceShare now has a **native SwiftUI management window** in
 `/Applications/DeviceShare.app`. This is an alpha; it has no Apple Developer
@@ -50,6 +50,8 @@ Under **Diagnostics**, select **Run Checks**. The Mac app reads Hub findings and
 This distinguishes a registered service from an actually connected Agent; an enabled CUPS queue from a queue accepting new requests; and a spooler-accepted job from physical paper output.
 
 See the [Diagnostics guide](DIAGNOSTICS.md) and the browser **Diagnostics** screen for more detail.
+
+In alpha.7, the **Services** page provides **Recheck connection** and displays a warning if the older `com.deviceshare.agent` launchd service is still loaded. Two Agents sharing the same station ID can disconnect each other repeatedly. Confirm which service is obsolete before stopping it; the new app does not disable legacy services automatically. A successful Agent startup is checked again after a brief delay because the initial Hub request may finish before the station connects.
 
 ## Device approval model
 
