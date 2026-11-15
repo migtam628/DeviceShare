@@ -2,7 +2,7 @@
 
 **DeviceShare** is a self-hosted peripheral bridge for sending print jobs and communicating with locally attached hardware from websites, POS applications, inventory systems, and remote servers.
 
-**Project status: v0.2.0-alpha.6.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not connect to untrusted devices, commands, or the open internet.
+**Project status: alpha.7 source merged; alpha.6 is the latest published installer release.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. Alpha.7's cross-platform previews have passed, but a tagged installer release is still pending. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not connect to untrusted devices, commands, or the open internet.
 
 ## Activation and email/password sign-in (alpha.5)
 
@@ -11,6 +11,13 @@ For first-time use on your Mac, open **DeviceShare.app → Overview** and start 
 Use **Settings** to change the password, revoke remembered browser sessions, and recover access with a 10-minute host-issued code. Passwords are salted and hashed with scrypt; repeated sign-in attempts are throttled. The native Mac app continues using its separate private Host key for machine provisioning and can generate a recovery code locally.
 
 **[Full activation and recovery guide](docs/AUTH_SETUP.md)**
+
+## Connection recovery (alpha.7 source)
+
+- The Agent recovers from temporary OS device-scan errors and reports them to the Hub; an inventory-scan warning clears after a successful scan.
+- Failed inventory transmissions trigger a new WebSocket connection with bounded backoff. Malformed Hub messages are ignored, and uncertain jobs are never blindly reprinted.
+- Generated test-page and custom-text prints are blocked when the last scan failed; Mac Services warns about an older competing LaunchAgent and offers a connection recheck.
+- **Distribution:** [Alpha.7 verified native build artifacts](https://github.com/migtam628/DeviceShare/actions/runs/43703990579) are available through GitHub Actions while the formal alpha.7 release is pending. Signed/notarized packages and physical Zebra/Brother/reboot acceptance remain open.
 
 ## Diagnostics and Printer Center (alpha.6)
 
