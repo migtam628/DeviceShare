@@ -12,12 +12,21 @@ DeviceShare's **Diagnostics** screen shows actionable observations from the Hub,
 
 The browser can copy a redacted diagnostics summary; it does not include administrator keys, station tokens, passwords or binary job payloads.
 
+### Connection recovery (alpha.7)
+
+If a local printer/USB enumeration throws an OS or driver exception, the Agent stays connected and retries on the next 30-second cycle (or upon a requested rescan). The Hub records **Station scan failed** and preserves the last successful inventory as *historical information*. New generated test pages and text PDFs are blocked until the scan succeeds; the Agent never replays older jobs automatically.
+
+If a device-inventory WebSocket send fails, the Agent exits that connection and retries with bounded randomized backoff. Malformed Hub messages are ignored. You can use **Rescan Station Devices** to request an earlier read-only retry. Inspect the station's private logs for local exception details; no exception text is transmitted to the Hub.
+
+The Mac app's **Services** page offers **Recheck connection** and warns if an older `com.deviceshare.agent` service is also loaded. The user must verify and disable the old service explicitly; DeviceShare does not stop it automatically.
+
 ### What each diagnostic means
 
 | Finding | Meaning | Safe next step |
 | --- | --- | --- |
 | Offline station | No live authenticated WebSocket is registered at the Hub | Confirm Agent started on the machine and matches saved station ID/token |
 | No or stale inventory | No inventory received, or last report is older than 90 seconds | Request a safe rescan; check agent log if still stale |
+| Station scan failed | Agent is connected, but the latest local hardware scan raised an error | Check Agent logs and OS permissions, then rescan; new generated print jobs are blocked until recovery |
 | Queue disabled | CUPS or another OS reports the queue disabled | Examine the printer and OS queue settings; do not force-retry jobs |
 | Queue not accepting | CUPS may report an enabled queue that is rejecting new requests | Inspect/correct local CUPS accepting status before sending print |
 | Printer not approved | Agent configuration explicitly excludes a discovered printer | In Mac Printers page enable **Approved**, save and restart Agent |

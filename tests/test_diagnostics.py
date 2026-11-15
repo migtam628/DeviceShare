@@ -98,6 +98,18 @@ def test_diagnostics_identifies_nonaccepting_queue():
     assert any(item["code"] == "printer-not-accepting" for item in report["findings"])
 
 
+def test_diagnostics_reports_scan_failure_without_erasing_known_devices():
+    report = build_diagnostics([
+        {"agent_id": "mac", "online": True, "inventory_error": True,
+         "inventory_age_seconds": 5,
+         "devices": [{"id": "printer:HP", "kind": "printer", "label": "HP",
+                      "state": "enabled", "allowed": True}]},
+    ], [])
+    assert any(item["code"] == "inventory-scan-error" for item in report["findings"])
+    assert report["counts"]["discovered_printers"] == 1
+    assert report["overall"] == "attention"
+
+
 def test_online_station_not_physical_printer_proof():
     report = build_diagnostics([
         {"agent_id": "mac", "online": True, "inventory_age_seconds": 4,
@@ -138,6 +150,47 @@ def test_diagnostics_api_auth_and_safe_refresh(tmp_path):
             assert result.status_code == 200
             assert socket.receive_json() == {"type": "refresh_inventory"}
             assert client.post("/v1/agents/mac/refresh", headers=AUTH).status_code == 429
+
+
+def test_hub_preserves_last_known_inventory_after_scan_error(tmp_path):
+    app = create_app(store_path=str(tmp_path / "db.sqlite"), api_key=ADMIN, agent_token=AGENT)
+    with TestClient(app) as client:
+        with client.websocket_connect("/v1/agents/mac/ws",
+                                      headers={"X-Agent-Token": AGENT}) as socket:
+            socket.send_json({"type": "inventory", "devices": [
+                {"id": "printer:HP", "kind": "printer", "label": "HP"},
+            ]})
+            for _ in range(100):
+                state = client.get("/v1/agents", headers=AUTH).json()[0]
+                if state["devices"]:
+                    break
+                time.sleep(0.01)
+            assert state["inventory_error"] is False
+            socket.send_json({"type": "inventory_error", "details": "not trusted by hub"})
+            for _ in range(100):
+                state = client.get("/v1/agents", headers=AUTH).json()[0]
+                if state["inventory_error"]:
+                    break
+                time.sleep(0.01)
+            assert state["inventory_error"] is True
+            assert state["devices"][0]["id"] == "printer:HP"
+            findings = client.get("/v1/diagnostics", headers=AUTH).json()["findings"]
+            assert any(f["code"] == "inventory-scan-error" for f in findings)
+            assert "not trusted by hub" not in str(findings)
+            blocked = client.post("/v1/print/test", headers=AUTH, json={
+                "agent_id": "mac", "device_id": "printer:HP",
+            })
+            assert blocked.status_code == 409
+            assert "last device scan failed" in blocked.json()["detail"]
+            assert client.get("/v1/jobs", headers=AUTH).json() == []
+            socket.send_json({"type": "inventory", "devices": []})
+            for _ in range(100):
+                state = client.get("/v1/agents", headers=AUTH).json()[0]
+                if state["inventory_error"] is False:
+                    break
+                time.sleep(0.01)
+            assert state["inventory_error"] is False
+            assert state["devices"] == []
 
 
 def test_refresh_cookie_csrf_guard(tmp_path):

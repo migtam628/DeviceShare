@@ -47,13 +47,22 @@ def build_diagnostics(
         online += 1
         inventory = agent.get("devices", [])
         age = agent.get("inventory_age_seconds")
-        if not inventory:
+        if agent.get("inventory_error") is True:
             add(
-                "no-inventory", "attention", "Waiting for device scan: " + aid,
-                "Agent connected, but the Hub has not received hardware inventory yet. "
-                "Request a safe refresh or check local OS permissions.",
-                "Refresh station inventory", "/diagnostics", agent_id=aid,
+                "inventory-scan-error", "attention", "Station scan failed: " + aid,
+                "The Agent is connected, but its most recent local hardware scan failed. "
+                "Previously discovered devices may be outdated. Check the station logs and "
+                "operating-system permissions; a later successful scan clears this warning.",
+                "Review station diagnostics", "/diagnostics", agent_id=aid,
             )
+        if not inventory:
+            if agent.get("inventory_error") is not True:
+                add(
+                    "no-inventory", "attention", "Waiting for device scan: " + aid,
+                    "Agent connected, but the Hub has not received hardware inventory yet. "
+                    "Request a safe refresh or check local OS permissions.",
+                    "Refresh station inventory", "/diagnostics", agent_id=aid,
+                )
             continue
         if isinstance(age, (int, float)) and age > 90:
             add(

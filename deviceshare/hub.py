@@ -32,6 +32,7 @@ class AgentConnection:
     ws: WebSocket
     devices: list[dict[str, Any]] = field(default_factory=list)
     last_inventory_monotonic: float | None = None
+    inventory_error: bool = False
     last_refresh_request: float = 0.0
     send_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     dispatch_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
@@ -56,7 +57,7 @@ def create_app(
     if agent_token and (len(agent_token) < 16 or secrets.compare_digest(api_key, agent_token)):
         raise RuntimeError("Legacy agent token must be distinct from the API key (16+ characters)")
     store = Store(store_path or os.environ.get("DEVICESHARE_DB", "./data/deviceshare.db"))
-    app = FastAPI(title="DeviceShare", version="0.2.0a6",
+    app = FastAPI(title="DeviceShare", version="0.2.0a7",
                   description="DeviceShare API. Printing accepted by an OS queue does not prove paper output.")
     clients: dict[str, AgentConnection] = {}
     app.state.store = store
@@ -318,6 +319,7 @@ def create_app(
                 "devices": clients[agent_id].devices if agent_id in clients else [],
                 "inventory_age_seconds": round(max(0, time.monotonic() - clients[agent_id].last_inventory_monotonic), 1)
                     if agent_id in clients and clients[agent_id].last_inventory_monotonic is not None else None,
+                "inventory_error": clients[agent_id].inventory_error if agent_id in clients else False,
                 "credential_status": (
                     "revoked" if paired[agent_id]["revoked_at"] else "paired"
                 ) if agent_id in paired else "legacy / unpaired",
@@ -393,6 +395,8 @@ def create_app(
         connection = clients.get(payload.agent_id)
         if connection is None:
             raise HTTPException(status_code=409, detail="Selected agent is offline. No print job was created.")
+        if connection.inventory_error:
+            raise HTTPException(status_code=409, detail="Station's last device scan failed. Refresh its inventory before printing; no job was created.")
         available = {d.get("id"): d for d in connection.devices if d.get("kind") == "printer"}
         printer = available.get(payload.device_id)
         if printer is None:
@@ -474,6 +478,11 @@ def create_app(
                             if isinstance(d, dict) and isinstance(d.get("id"), str)
                         ]
                         link.last_inventory_monotonic = time.monotonic()
+                        link.inventory_error = False
+                elif msg.get("type") == "inventory_error":
+                    # A failed local OS enumeration is not an empty inventory.
+                    # Preserve last known devices and surface the failed scan.
+                    link.inventory_error = True
                 elif msg.get("type") == "result" and isinstance(msg.get("id"), str):
                     successful = msg.get("success") is True
                     detail = msg.get("detail", {})
@@ -491,7 +500,7 @@ def create_app(
 
 def main():
     parser = argparse.ArgumentParser(description="DeviceShare HTTP hub")
-    parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a6")
+    parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a7")
     parser.add_argument("--api-key-file", default=os.getenv("DEVICESHARE_API_KEY_FILE"),
                         help="Read administrator API key from a private file instead of shell environment")
     parser.add_argument("--issue-activation-code", action="store_true",

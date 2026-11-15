@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.2.0-alpha.7 — Connection recovery (2026-11-15)
+
+- Agent retries hardware enumeration after transient OS/driver failures; a failed scan is visibly reported to the Hub while the last successful inventory remains available for inspection.
+- Added an inventory-scan-error diagnostic. New generated test/text print jobs are rejected until a new successful device scan clears the condition, avoiding use of stale printer readiness data.
+- Agent now restarts its WebSocket connection if the inventory task fails, ignores malformed Hub frames, and applies bounded reconnect backoff with jitter during repeated failures. It never automatically replays an uncertain print job.
+- Mac Services refreshes its connection status after starting an Agent, offers an explicit Recheck action, and warns if an older `com.deviceshare.agent` LaunchAgent is loaded. Legacy services are not disabled automatically.
+- Added recovery and security regression tests. Mac login/reboot persistence and physical Brother/Zebra printing still require field verification.
+
 ## v0.2.0-alpha.6 — Diagnostics and Printer Center (2026-11-12)
 
 - Added actionable station and printer diagnostics for offline agents, stale inventory, missing local approvals, disabled/non-accepting queues, and uncertain/failed jobs.

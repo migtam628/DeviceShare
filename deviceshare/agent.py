@@ -3,7 +3,9 @@ import argparse
 import asyncio
 import json
 import os
+import random
 import re
+import time
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
@@ -57,6 +59,78 @@ def approved_inventory(devices: list[dict], config: dict) -> list[dict]:
     return result
 
 
+def reconnect_delay(consecutive_failures: int) -> float:
+    """Bounded reconnect backoff with jitter to avoid connection storms."""
+    exponent = min(max(consecutive_failures - 1, 0), 4)
+    return min(30.0, float(2 ** exponent)) + random.uniform(0, 0.5)
+
+
+async def refresh_inventory(socket, config: dict, requested: asyncio.Event):
+    """Keep reporting device state even when a local OS scan fails once."""
+    while True:
+        try:
+            devices = await asyncio.to_thread(discover)
+            message = {"type": "inventory", "devices": approved_inventory(devices, config)}
+        except Exception as exc:
+            # The detailed error stays in the local station logs; the Hub gets
+            # no local file paths, driver internals, or credentials.
+            print(f"Inventory scan failed ({type(exc).__name__}): {exc}", flush=True)
+            message = {"type": "inventory_error"}
+        # Send errors must propagate: a broken socket requires reconnection,
+        # not a silent task failure while the station appears online.
+        await socket.send(json.dumps(message))
+        try:
+            await asyncio.wait_for(requested.wait(), timeout=30)
+            requested.clear()
+        except asyncio.TimeoutError:
+            pass
+
+
+async def receive_jobs(socket, config: dict, requested: asyncio.Event):
+    async for message in socket:
+        try:
+            payload = json.loads(message)
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
+            print("Ignored malformed Hub message", flush=True)
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if payload.get("type") == "refresh_inventory":
+            # Read-only re-enumeration; never replays old print jobs.
+            requested.set()
+            continue
+        if payload.get("type") != "job":
+            continue
+        job_id = payload.get("id", "")
+        try:
+            # Avoid blocking the WebSocket event loop on physical I/O.
+            result = await asyncio.to_thread(execute, payload, config)
+            reply = {"type": "result", "id": job_id,
+                     "success": True, "detail": result}
+        except Exception as exc:
+            reply = {"type": "result", "id": job_id,
+                     "success": False,
+                     "detail": {"error": str(exc)[:500]}}
+        await socket.send(json.dumps(reply))
+
+
+async def connected_session(socket, config: dict):
+    """Reconnect if either inventory reporting or command receiving stops."""
+    refresh_requested = asyncio.Event()
+    tasks = [
+        asyncio.create_task(refresh_inventory(socket, config, refresh_requested)),
+        asyncio.create_task(receive_jobs(socket, config, refresh_requested)),
+    ]
+    try:
+        finished, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        for task in finished:
+            await task
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
 async def run(config: dict):
     agent_id = config.get("agent_id", "")
     token = os.getenv("DEVICESHARE_AGENT_TOKEN", "")
@@ -70,7 +144,9 @@ async def run(config: dict):
         allow_insecure_remote=config.get("allow_insecure_remote", False),
     )
     print(f"DeviceShare agent {agent_id}: connecting to {url}", flush=True)
+    failures = 0
     while True:
+        started_at = time.monotonic()
         try:
             async with connect(
                 url,
@@ -80,56 +156,17 @@ async def run(config: dict):
                 ping_interval=20,
                 ping_timeout=20,
             ) as socket:
-                refresh_requested = asyncio.Event()
-
-                async def refresh_inventory():
-                    while True:
-                        devices = await asyncio.to_thread(discover)
-                        inventory = approved_inventory(devices, config)
-                        await socket.send(json.dumps({"type": "inventory", "devices": inventory}))
-                        try:
-                            await asyncio.wait_for(refresh_requested.wait(), timeout=30)
-                            refresh_requested.clear()
-                        except asyncio.TimeoutError:
-                            pass
-
-                inventory_task = asyncio.create_task(refresh_inventory())
                 print("Connected to DeviceShare hub", flush=True)
-                try:
-                    async for message in socket:
-                        payload = json.loads(message)
-                        if payload.get("type") == "refresh_inventory":
-                            # Safe request only: re-enumerate local devices.
-                            # This does not enable hardware or run remote commands.
-                            refresh_requested.set()
-                            continue
-                        if payload.get("type") != "job":
-                            continue
-                        job_id = payload.get("id", "")
-                        try:
-                            # Avoid blocking the WebSocket event loop on physical I/O.
-                            result = await asyncio.to_thread(execute, payload, config)
-                            reply = {"type": "result", "id": job_id,
-                                     "success": True, "detail": result}
-                        except Exception as exc:
-                            reply = {"type": "result", "id": job_id,
-                                     "success": False,
-                                     "detail": {"error": str(exc)[:500]}}
-                        await socket.send(json.dumps(reply))
-                finally:
-                    inventory_task.cancel()
-                    try:
-                        await inventory_task
-                    except asyncio.CancelledError:
-                        pass
+                await connected_session(socket, config)
         except Exception as exc:
             # Connection errors and server restarts: reconnect, never replay local jobs.
             print(f"Disconnected: {type(exc).__name__}: {exc}", flush=True)
-        await asyncio.sleep(5)
+        failures = 0 if time.monotonic() - started_at >= 60 else failures + 1
+        await asyncio.sleep(reconnect_delay(failures))
 
 def main():
     parser = argparse.ArgumentParser(description="DeviceShare local agent")
-    parser.add_argument("--version", action="version", version="DeviceShare Agent 0.2.0a6")
+    parser.add_argument("--version", action="version", version="DeviceShare Agent 0.2.0a7")
     parser.add_argument("--list-devices", action="store_true",
                         help="Print read-only local device inventory as JSON and exit")
     parser.add_argument("--config", default=os.environ.get(

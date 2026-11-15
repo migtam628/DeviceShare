@@ -47,7 +47,7 @@ struct DeviceShareHome: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
-                    Text("v0.2.0-alpha.6").font(.caption.monospacedDigit())
+                    Text("v0.2.0-alpha.7").font(.caption.monospacedDigit())
                     Text("Agent: " + controller.agentState)
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -124,6 +124,9 @@ struct DeviceShareHome: View {
         }
         .padding(20)
         .onAppear { controller.refreshServices() }
+        .onChange(of: currentTab) { tab in
+            if tab == .services { controller.refreshServices() }
+        }
     }
 
     private func iconName(for tab: Tab) -> String {
@@ -809,7 +812,7 @@ struct DeviceShareHome: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("About & security").font(.headline)
-                        Text("DeviceShare v0.2.0-alpha.4")
+                        Text("DeviceShare v0.2.0-alpha.7")
                         Text("The web dashboard uses email and password with remembered HttpOnly browser sessions. The local app retains a separate private machine credential for agent provisioning. Optional remote integration keys are kept in macOS Keychain.")
                             .font(.caption).foregroundStyle(.secondary)
                         Text("Unsigned developer alpha. Limit the Hub to loopback or HTTPS on a trusted network. A print job accepted by the spooler does not prove physical paper output.")
@@ -858,6 +861,18 @@ struct DeviceShareHome: View {
                         }
                         Text(controller.agentConnectivityNote)
                             .font(.caption).foregroundStyle(controller.agentConnected ? Color.green : Color.secondary)
+                        HStack {
+                            Spacer()
+                            Button("Recheck connection") { controller.refreshServices() }
+                                .buttonStyle(.bordered)
+                        }
+                        if controller.legacyAgentDetected {
+                            Label("An older DeviceShare Agent is also loaded", systemImage: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                                .font(.callout.weight(.semibold))
+                            Text("The legacy com.deviceshare.agent service can compete for the same station ID and cause repeated disconnects. Inspect and disable the old LaunchAgent before relying on the current service; DeviceShare will not alter it automatically.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
                         Text("The status above checks the Hub's live station connection, not just whether launchd has registered a service. Restart the Agent after credential or printer-approval changes.")
                             .font(.caption).foregroundStyle(.secondary)
                     }
