@@ -1,10 +1,15 @@
 name: Build GitHub Release
-# Alpha.7: gate agent recovery, app builds, native installer integrity and checksums.
+# A commit to release/REQUEST.txt triggers an end-to-end verified release.
+# No local git tag or manual software packaging is required.
 
 on:
   push:
     tags:
       - "v*-alpha.*"
+    branches:
+      - main
+    paths:
+      - "release/REQUEST.txt"
   workflow_dispatch:
     inputs:
       release_tag:
@@ -15,12 +20,40 @@ on:
 permissions:
   contents: read
 
-env:
-  # Future releases are explicit version tags or an intentional manual dispatch.
-  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref_name }}
+concurrency:
+  group: deviceshare-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  resolve:
+    name: Validate the requested release tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - id: version
+        shell: bash
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            tag="$INPUT_RELEASE_TAG"
+          elif [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag="$(tr -d '\r\n' < release/REQUEST.txt)"
+          fi
+          python scripts/verify_release_version.py "$tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Verified release request: $tag"
+
   test:
+    needs: resolve
     name: Validate version and unit tests
     runs-on: ubuntu-latest
     steps:
@@ -28,7 +61,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: python scripts/verify_release_version.py "${{ env.RELEASE_TAG }}"
+      - run: python scripts/verify_release_version.py "${{ needs.resolve.outputs.tag }}"
       - run: python -m pip install ".[dev]"
       - run: python -m pytest -q
 
@@ -84,11 +117,14 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: build
+    needs: [resolve, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v4
         with:
           pattern: bundle-*
@@ -98,6 +134,8 @@ jobs:
         shell: bash
         run: |
           cd release-assets
+          deb_version="${RELEASE_TAG#v}"
+          deb_version="${deb_version/-alpha./.alpha}"
           for package in \
             DeviceShare-linux-x64.zip \
             DeviceShare-windows-x64.zip \
@@ -109,7 +147,7 @@ jobs:
             DeviceShare-macos-arm64.dmg \
             DeviceShare-macos-x64.pkg \
             DeviceShare-macos-x64.dmg \
-            DeviceShare_0.2.0.alpha7_amd64.deb; do
+            "DeviceShare_${deb_version}_amd64.deb"; do
             test -s "$package" || { echo "Missing release asset $package"; exit 1; }
           done
           sha256sum DeviceShare* > SHA256SUMS.txt
@@ -122,9 +160,10 @@ jobs:
             echo "Release ${RELEASE_TAG} already exists; no changes made."
             exit 0
           fi
+          test -s release/RELEASE_NOTES.md || { echo "Missing release notes"; exit 1; }
           gh release create "${RELEASE_TAG}" release-assets/* \
             --repo "${GITHUB_REPOSITORY}" \
             --target "${GITHUB_SHA}" \
             --title "DeviceShare ${RELEASE_TAG}" \
-            --notes "DeviceShare alpha.7 Connection Recovery: local hardware scan failures are now reported to Diagnostics without silently stopping inventory; successful rescans clear the error; test/document prints are blocked while the latest scan is failed; inventory send failures force Agent reconnection, with jittered backoff; malformed Hub frames no longer crash the Agent; Mac Services can recheck the station and warn of a loaded legacy Agent. No failed or uncertain job is automatically replayed. Signing, notarization, full Mac reboot acceptance and Zebra/Brother/Windows PDF hardware tests remain open. Ships Apple Silicon/Intel Mac PKG/DMG, Windows MSI/EXE, Debian/Ubuntu DEB and portable ZIPs. Verify SHA256SUMS.txt; see docs/DIAGNOSTICS.md." \
+            --notes-file release/RELEASE_NOTES.md \
             --prerelease
