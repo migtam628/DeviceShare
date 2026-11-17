@@ -8,7 +8,10 @@ if [[ "${RUNNER_OS:-}" == "Windows" ]]; then
   python -m pip install ".[windows]"
   windows_imports=(--hidden-import win32print --hidden-import win32gui --hidden-import win32ui --hidden-import PIL.ImageWin --collect-all pypdfium2)
 else
-  windows_imports=()
+  # macOS ships Bash 3.2, where expanding an empty array with set -u is an
+  # unbound-variable error. This harmless hidden import was already used in
+  # older cross-platform builds and keeps the argument array nonempty.
+  windows_imports=(--hidden-import win32print)
 fi
 
 agent_name="deviceshare-agent-${suffix}"
