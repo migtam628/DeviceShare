@@ -12,6 +12,7 @@ struct LocalPeripheral: Codable, Identifiable {
     let label: String
     let state: String?
     let accepting: Bool?
+    var trays: [String]? = nil
 
     var canApprove: Bool {
         id.hasPrefix("printer:") || id.hasPrefix("serial:") || id.hasPrefix("hid:")
@@ -71,6 +72,7 @@ final class DeviceShareController: ObservableObject {
     @Published var copies = 1
     @Published var paperSize = "Letter"
     @Published var printDuplex = false
+    @Published var selectedTray = ""
     @Published var printInProgress = false
     @Published var printStatus = "Select an approved printer to begin."
     @Published var lastPrintJobID = ""
@@ -509,6 +511,8 @@ final class DeviceShareController: ObservableObject {
         availablePrinters.first(where: { $0.id == selectedPrinterID })
     }
 
+    var availablePrinterTrays: [String] { selectedPrinter?.trays ?? [] }
+
     var printerReady: Bool {
         guard let printer = selectedPrinter else { return false }
         return printer.state != "disabled" && printer.accepting != false && approvals.contains(printer.id) && hasToken
@@ -556,8 +560,10 @@ final class DeviceShareController: ObservableObject {
     }
 
     private func printOptions() -> [String: Any] {
-        ["copies": copies, "media": paperSize,
-         "sides": printDuplex ? "two-sided-long-edge" : "one-sided"]
+        var options: [String: Any] = ["copies": copies, "media": paperSize,
+                                    "sides": printDuplex ? "two-sided-long-edge" : "one-sided"]
+        if availablePrinterTrays.contains(selectedTray) { options["tray"] = selectedTray }
+        return options
     }
 
     func submitTestPrint() {

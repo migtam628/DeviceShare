@@ -58,6 +58,6 @@ Neither API proves that the USB/network printer is awake, has paper, receives a 
 
 ### Remaining acceptance tests
 
-The Mac mini owner has verified the alpha.5 login, automatic Agent reconnection after restarting, a real printer test page, and browser login persistence. Still unverified: restart after full logout/reboot, printer-specific Zebra/Brother queue options, tray selection, Windows PDF rendering, and macOS signing/notarization. Track these separately in GitHub issues #1 and #2.
+The Mac mini owner has verified the alpha.5 login, automatic Agent reconnection after restarting, a real printer test page, and browser login persistence. Alpha.8 adds code paths for Brother CUPS trays, Zebra 4×6 ZPL labels and Windows PDF/PNG rendering, but physical acceptance is still unverified. Also unverified: restart after full logout/reboot and macOS signing/notarization. Track these separately in GitHub issues #1 and #2; see [printer acceptance](PRINT_ACCEPTANCE.md).
 
 **If a diagnostic says "ready to test", it means the Hub observes a connected station and configured queue, not that printing physically succeeded.**

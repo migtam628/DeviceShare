@@ -47,7 +47,7 @@ struct DeviceShareHome: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
-                    Text("v0.2.0-alpha.7").font(.caption.monospacedDigit())
+                    Text("v0.2.0-alpha.8").font(.caption.monospacedDigit())
                     Text("Agent: " + controller.agentState)
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -478,6 +478,15 @@ struct DeviceShareHome: View {
                             Toggle("Duplex", isOn: $controller.printDuplex)
                                 .frame(width: 94)
                         }
+                        Picker("Paper source", selection: $controller.selectedTray) {
+                            Text("Printer default").tag("")
+                            ForEach(controller.availablePrinterTrays, id: \.self) { tray in
+                                Text(tray).tag(tray)
+                            }
+                        }
+                        .disabled(controller.availablePrinterTrays.isEmpty)
+                        Text("Sources come from the local printer configuration. If none appear, the printer default is used.")
+                            .font(.caption).foregroundStyle(.secondary)
                     }
                 }
 
@@ -812,7 +821,7 @@ struct DeviceShareHome: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("About & security").font(.headline)
-                        Text("DeviceShare v0.2.0-alpha.7")
+                        Text("DeviceShare v0.2.0-alpha.8")
                         Text("The web dashboard uses email and password with remembered HttpOnly browser sessions. The local app retains a separate private machine credential for agent provisioning. Optional remote integration keys are kept in macOS Keychain.")
                             .font(.caption).foregroundStyle(.secondary)
                         Text("Unsigned developer alpha. Limit the Hub to loopback or HTTPS on a trusted network. A print job accepted by the spooler does not prove physical paper output.")

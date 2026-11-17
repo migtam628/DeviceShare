@@ -1,4 +1,4 @@
-# DeviceShare.app for macOS (v0.2.0-alpha.7)
+# DeviceShare.app for macOS (v0.2.0-alpha.8)
 
 DeviceShare now has a **native SwiftUI management window** in
 `/Applications/DeviceShare.app`. This is an alpha; it has no Apple Developer
@@ -34,9 +34,9 @@ USB drivers, blanket printer access or automatic start of its network services.
 DeviceShare.app uses a sidebar with separate **Printers**, **Print Studio**, **Local Devices**, **Services** and **Settings** sections.
 
 1. **Printers:** scan your macOS queues, choose the specific printer you intend to use and enable its local **Approved** switch. Save approvals, then restart the Agent under Services. An enabled queue is not necessarily physically connected.
-2. **Print Studio:** select the approved queue, choose **copies (1–5)**, **US Letter or A4**, and optional double-sided printing. The **Print Test Page** action submits a single PDF containing identity, time, grayscale swatches, and an alignment border.
+2. **Print Studio:** select the approved queue, choose **copies (1–5)**, **US Letter or A4**, optional double-sided printing, and a **paper source** if CUPS advertises one. The **Print Test Page** action submits a single PDF containing identity, time, grayscale swatches, and an alignment border.
 3. **Custom print:** enter a title and custom text (up to 12,000 characters), then press **Print Custom Text**. The Hub creates a bounded PDF and sends it to the selected station.
-4. **Document print:** choose a PDF or PNG (up to 1 MiB) and send it to the selected printer. Windows PDF/PNG rendering is not yet supported; macOS/Linux use CUPS.
+4. **Document print:** choose a PDF or PNG (up to 1 MiB) and send it to the selected printer. macOS/Linux use CUPS; Windows uses PDFium/Pillow and the printer's GDI driver in alpha.8, pending physical test.
 5. **Activity:** open the web Hub's Activity page to inspect job state. **Accepted** means accepted by the OS spooler, not proof the paper emerged.
 
 CUPS `lpstat -p` reports queue state, whereas network/USB hardware can still be offline. Check your HP ENVY's queue and physical connection before repeatedly submitting print jobs.

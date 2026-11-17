@@ -61,6 +61,11 @@ Agent startup can be configured for the logged-in user using
 not turned on by the MSI or setup EXE; no hardware access is silently
 approved. There is no Windows background-system-service installation yet.
 
+Starting in alpha.8, Windows document printing uses the native printer driver
+with a bundled PDFium renderer and Pillow for PDF/PNG. It needs a correctly
+installed printer driver. Physical output, duplex and page sizing must be
+accepted on real hardware before use in production. See [print acceptance](PRINT_ACCEPTANCE.md).
+
 ## macOS Apple Silicon or Intel
 
 **Version 0.2.0-alpha.4** includes a real native SwiftUI

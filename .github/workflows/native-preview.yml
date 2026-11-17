@@ -9,6 +9,15 @@ on:
       - "scripts/build_native_*"
       - "docs/INSTALL_NATIVE.md"
       - ".github/workflows/native-preview.yml"
+  pull_request:
+    paths:
+      - "installers/**"
+      - "macos/**"
+      - "scripts/build_native_*"
+      - "scripts/build_portable.sh"
+      - "deviceshare/windows_print.py"
+      - "deviceshare/backends.py"
+      - ".github/workflows/native-preview.yml"
   workflow_dispatch:
 
 concurrency:

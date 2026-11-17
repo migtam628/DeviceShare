@@ -80,6 +80,7 @@ def test_cups_queue_acceptance_is_separate_from_enabled_state():
         returncode=0, stdout="printer HP is idle. enabled since Tue\nprinter Zebra is idle. enabled since Tue\n")
     with patch("deviceshare.discovery.platform.system", return_value="Darwin"), \
          patch("deviceshare.discovery.shutil.which", return_value="/usr/bin/lpstat"), \
+         patch("deviceshare.discovery.cups_trays", return_value=(None, [])), \
          patch("deviceshare.discovery.subprocess.run", side_effect=[accepted, status]):
         printers = [d for d in discover() if d.get("kind") == "printer"]
     by_name = {d["label"]: d for d in printers}
