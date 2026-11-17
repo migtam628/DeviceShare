@@ -2,7 +2,16 @@
 
 **DeviceShare** is a self-hosted peripheral bridge for sending print jobs and communicating with locally attached hardware from websites, POS applications, inventory systems, and remote servers.
 
-**Project status: alpha.7 source merged; alpha.6 is the latest published installer release.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. Alpha.7's cross-platform previews have passed, but a tagged installer release is still pending. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not connect to untrusted devices, commands, or the open internet.
+**Project status: alpha.8 source in development; alpha.7 is the latest published installer release.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not expose the Hub directly to the open internet or connect to untrusted devices.
+
+## Printing workflows (alpha.8 source)
+
+- **Brother multi-tray CUPS queues:** discover `InputSlot` or `media-source` choices from the local printer configuration. Print Studio (web/Mac) offers only reported sources and uses printer default otherwise; the Agent validates the source again before spooling.
+- **Zebra 4×6:** Print Studio can generate a bounded 203-dpi ZPL station label containing recipient, address and reference. This is *not* a carrier-paid shipping label; the selected, approved queue must support RAW ZPL passthrough and be loaded with 4×6 stock.
+- **Windows PDF/PNG:** render up to 12 PDF pages or one PNG into bounded GDI raster pages using PDFium/Pillow and the chosen printer's driver. Letter/A4, duplex and copies are passed to driver settings. Windows tray selection is not supported yet; Windows physical output still requires testing.
+- No print is automatically re-sent after an uncertain result. Operating-system queue acceptance is not proof of a printed page.
+
+Follow the [Printer Workflow Acceptance Guide](docs/PRINT_ACCEPTANCE.md) before using real orders or customer shipping labels.
 
 ## Activation and email/password sign-in (alpha.5)
 
@@ -12,12 +21,12 @@ Use **Settings** to change the password, revoke remembered browser sessions, and
 
 **[Full activation and recovery guide](docs/AUTH_SETUP.md)**
 
-## Connection recovery (alpha.7 source)
+## Connection recovery (alpha.7)
 
 - The Agent recovers from temporary OS device-scan errors and reports them to the Hub; an inventory-scan warning clears after a successful scan.
 - Failed inventory transmissions trigger a new WebSocket connection with bounded backoff. Malformed Hub messages are ignored, and uncertain jobs are never blindly reprinted.
 - Generated test-page and custom-text prints are blocked when the last scan failed; Mac Services warns about an older competing LaunchAgent and offers a connection recheck.
-- **Distribution:** [Alpha.7 verified native build artifacts](https://github.com/migtam628/DeviceShare/actions/runs/43703990579) are available through GitHub Actions while the formal alpha.7 release is pending. Signed/notarized packages and physical Zebra/Brother/reboot acceptance remain open.
+- **Distribution:** [Alpha.7 published native installers](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.7) are available through GitHub Releases. Signed/notarized packages and physical Zebra/Brother/reboot acceptance remain open.
 
 ## Diagnostics and Printer Center (alpha.6)
 
@@ -30,14 +39,14 @@ Read the [Diagnostics guide](docs/DIAGNOSTICS.md) and [Mac acceptance issue](htt
 
 ## Native installation packages
 
-**[Download DeviceShare v0.2.0-alpha.6](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.6)**
+**[Download DeviceShare v0.2.0-alpha.7](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.7)**
 
 | Platform | Native installer |
 | --- | --- |
-| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-Setup-windows-x64.exe) |
-| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-macos-arm64.pkg) |
-| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare-macos-x64.pkg) |
-| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.6/DeviceShare_0.2.0.alpha6_amd64.deb) |
+| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.7/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.7/DeviceShare-Setup-windows-x64.exe) |
+| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.7/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.7/DeviceShare-macos-arm64.pkg) |
+| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.7/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.7/DeviceShare-macos-x64.pkg) |
+| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.7/DeviceShare_0.2.0.alpha7_amd64.deb) |
 
 Read **[native installer setup](docs/INSTALL_NATIVE.md)** and compare downloads with the release's `SHA256SUMS.txt`. Installer files include both the Agent and Hub; they do not automatically authorize peripherals or install OS drivers. Portable ZIP builds remain available.
 

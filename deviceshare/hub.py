@@ -23,6 +23,8 @@ from urllib.parse import urlsplit
 from .models import JobCreate
 from .diagnostics import build_diagnostics
 from .printing import PrintSubmission, TextSubmission, render_pdf
+from .labels import StationLabelSubmission, render_station_label
+from .printer_capabilities import TRAY_TOKEN, MAX_TRAYS
 from .store import Store
 
 auth_header = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -57,7 +59,7 @@ def create_app(
     if agent_token and (len(agent_token) < 16 or secrets.compare_digest(api_key, agent_token)):
         raise RuntimeError("Legacy agent token must be distinct from the API key (16+ characters)")
     store = Store(store_path or os.environ.get("DEVICESHARE_DB", "./data/deviceshare.db"))
-    app = FastAPI(title="DeviceShare", version="0.2.0a7",
+    app = FastAPI(title="DeviceShare", version="0.2.0a8",
                   description="DeviceShare API. Printing accepted by an OS queue does not prove paper output.")
     clients: dict[str, AgentConnection] = {}
     app.state.store = store
@@ -391,14 +393,14 @@ def create_app(
         await deliver(job.agent_id)
         return item
 
-    def submit_pdf_job(payload: PrintSubmission, pdf_data: bytes):
-        connection = clients.get(payload.agent_id)
+    def validate_live_printer(agent_id: str, device_id: str, tray: str | None = None):
+        connection = clients.get(agent_id)
         if connection is None:
             raise HTTPException(status_code=409, detail="Selected agent is offline. No print job was created.")
         if connection.inventory_error:
             raise HTTPException(status_code=409, detail="Station's last device scan failed. Refresh its inventory before printing; no job was created.")
         available = {d.get("id"): d for d in connection.devices if d.get("kind") == "printer"}
-        printer = available.get(payload.device_id)
+        printer = available.get(device_id)
         if printer is None:
             raise HTTPException(status_code=409, detail="Printer not found in live station inventory. No job created.")
         if printer.get("state") == "disabled":
@@ -407,6 +409,12 @@ def create_app(
             raise HTTPException(status_code=409, detail="Printer is not approved on the station. Approve it locally and restart the Agent.")
         if printer.get("accepting") is False:
             raise HTTPException(status_code=409, detail="Printer queue is not accepting jobs. Check its OS printer settings.")
+        if tray is not None and tray not in printer.get("trays", []):
+            raise HTTPException(status_code=409, detail="Selected paper tray is not available on this printer. Rescan the station.")
+        return printer
+
+    def submit_pdf_job(payload: PrintSubmission, pdf_data: bytes):
+        validate_live_printer(payload.agent_id, payload.device_id, payload.tray)
         if len(pdf_data) > 1024 * 1024:
             raise HTTPException(status_code=422, detail="Generated PDF exceeds 1 MiB")
         job = JobCreate(
@@ -415,7 +423,8 @@ def create_app(
             operation="print_document",
             data_base64=base64.b64encode(pdf_data).decode("ascii"),
             options={"mime_type": "application/pdf", "copies": payload.copies,
-                     "media": payload.media, "sides": payload.sides},
+                     "media": payload.media, "sides": payload.sides,
+                     "tray": payload.tray},
         )
         return store.create(job.model_dump(mode="json"))
 
@@ -439,6 +448,21 @@ def create_app(
         job = submit_pdf_job(payload, pdf)
         await deliver(payload.agent_id)
         return {**job, "notice": "Text PDF sent to the selected station. Check the physical printer."}
+
+    @app.post("/v1/print/station-label", status_code=202, dependencies=[Depends(require_api_key)])
+    async def print_station_label(payload: StationLabelSubmission):
+        validate_live_printer(payload.agent_id, payload.device_id)
+        # CUPS queues must be configured for passthrough ZPL and backed by an
+        # actual compatible label printer. The Hub cannot detect model/stock.
+        label = render_station_label(payload)
+        job = JobCreate(agent_id=payload.agent_id, device_id=payload.device_id,
+                        operation="print_raw", data_base64=base64.b64encode(label).decode("ascii"))
+        try:
+            item = store.create(job.model_dump(mode="json"))
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        await deliver(payload.agent_id)
+        return {**item, "notice": "ZPL station label submitted. Not postage or proof of printed output."}
 
     @app.websocket("/v1/agents/{agent_id}/ws")
     async def agent_socket(ws: WebSocket, agent_id: str):
@@ -473,7 +497,12 @@ def create_app(
                              "label": str(d.get("label", ""))[:200],
                              "state": str(d.get("state", "unknown"))[:32],
                              "allowed": d["allowed"] if type(d.get("allowed")) is bool else None,
-                             "accepting": d["accepting"] if type(d.get("accepting")) is bool else None}
+                             "accepting": d["accepting"] if type(d.get("accepting")) is bool else None,
+                             "trays": list(dict.fromkeys(t for t in d.get("trays", [])[:MAX_TRAYS]
+                                 if isinstance(t, str) and TRAY_TOKEN.fullmatch(t)))
+                                 if isinstance(d.get("trays"), list) else [],
+                             "tray_option": d.get("tray_option")
+                                 if d.get("tray_option") in ("InputSlot", "media-source") else None}
                             for d in raw[:200]
                             if isinstance(d, dict) and isinstance(d.get("id"), str)
                         ]
@@ -500,7 +529,7 @@ def create_app(
 
 def main():
     parser = argparse.ArgumentParser(description="DeviceShare HTTP hub")
-    parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a7")
+    parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a8")
     parser.add_argument("--api-key-file", default=os.getenv("DEVICESHARE_API_KEY_FILE"),
                         help="Read administrator API key from a private file instead of shell environment")
     parser.add_argument("--issue-activation-code", action="store_true",

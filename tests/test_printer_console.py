@@ -76,3 +76,44 @@ def test_test_page_rejects_disabled_printer(tmp_path):
                                  json={"agent_id": "station", "device_id": "printer:HP_ENVY"})
             assert answer.status_code == 409
             assert client.get("/v1/jobs", headers={"X-API-Key": ADMIN}).json() == []
+
+
+def test_brother_tray_and_zebra_4x6_label_dispatch(tmp_path):
+    app = create_app(store_path=str(tmp_path / "hub.db"), api_key=ADMIN, agent_token=AGENT)
+    with TestClient(app) as client:
+        with client.websocket_connect("/v1/agents/station/ws", headers={"X-Agent-Token": AGENT}) as socket:
+            socket.send_json({"type": "inventory", "devices": [
+                {"id": "printer:Brother", "kind": "printer", "label": "Brother",
+                 "state": "enabled", "accepting": True,
+                 "trays": ["Auto", "Tray1", "Tray2", "^INVALID", "Tray2"], "tray_option": "InputSlot"},
+                {"id": "printer:Zebra", "kind": "printer", "label": "Zebra",
+                 "state": "enabled", "accepting": True}]})
+            for _ in range(40):
+                inventory = client.get("/v1/agents", headers={"X-API-Key": ADMIN}).json()
+                if inventory and len(inventory[0]["devices"]) == 2:
+                    break
+                time.sleep(0.02)
+            brother = next(x for x in inventory[0]["devices"] if x["id"] == "printer:Brother")
+            assert brother["trays"] == ["Auto", "Tray1", "Tray2"]
+            base = {"agent_id": "station", "device_id": "printer:Brother"}
+            invalid = client.post("/v1/print/test", headers={"X-API-Key": ADMIN},
+                                  json={**base, "tray": "Tray3"})
+            assert invalid.status_code == 409
+            assert client.get("/v1/jobs", headers={"X-API-Key": ADMIN}).json() == []
+            allowed = client.post("/v1/print/test", headers={"X-API-Key": ADMIN},
+                                  json={**base, "tray": "Tray2"})
+            assert allowed.status_code == 202
+            job = socket.receive_json()
+            assert job["operation"] == "print_document" and job["options"]["tray"] == "Tray2"
+            socket.send_json({"type": "result", "id": allowed.json()["id"],
+                              "success": True, "detail": {"queue": "cups"}})
+
+            label = client.post("/v1/print/station-label", headers={"X-API-Key": ADMIN}, json={
+                "agent_id": "station", "device_id": "printer:Zebra", "recipient": "Marta",
+                "address_line1": "123 Example St", "city_state_postal": "Miami FL 33101",
+                "reference": "ORD-123"})
+            assert label.status_code == 202
+            dispatched = socket.receive_json()
+            assert dispatched["operation"] == "print_raw"
+            assert dispatched["device_id"] == "printer:Zebra"
+            assert base64.b64decode(dispatched["data_base64"]).startswith(b"^XA\n^PW812\n^LL1218")

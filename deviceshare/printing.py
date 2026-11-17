@@ -12,6 +12,8 @@ import textwrap
 
 from pydantic import BaseModel, Field
 from typing import Literal
+from .printer_capabilities import TRAY_TOKEN
+from pydantic import field_validator
 
 MAX_TEXT_CHARACTERS = 12000
 MAX_TITLE_CHARACTERS = 80
@@ -23,6 +25,14 @@ class PrintSubmission(BaseModel):
     copies: int = Field(default=1, ge=1, le=5)
     media: Literal["Letter", "A4"] = "Letter"
     sides: Literal["one-sided", "two-sided-long-edge"] = "one-sided"
+    tray: str | None = None
+
+    @field_validator("tray")
+    @classmethod
+    def validate_tray(cls, value: str | None) -> str | None:
+        if value is not None and not TRAY_TOKEN.fullmatch(value):
+            raise ValueError("invalid paper tray identifier")
+        return value
 
 
 class TextSubmission(PrintSubmission):
@@ -63,6 +73,7 @@ def render_pdf(job: PrintSubmission | TextSubmission, *, test_page: bool) -> byt
             ("Printer", _safe_pdf_text(job.device_id.removeprefix("printer:"))[:65]),
             ("Agent", job.agent_id),
             ("Paper", job.media),
+            ("Tray", job.tray or "Printer default"),
             ("Copies", str(job.copies)),
             ("Date (UTC)", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")),
         ]

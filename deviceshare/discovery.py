@@ -5,6 +5,7 @@ import shutil
 import subprocess
 
 from .hid_devices import list_hid_devices
+from .printer_capabilities import cups_trays
 
 def discover() -> list[dict[str, str]]:
     devices = [{"id": "sim:printer", "kind": "simulator", "label": "Simulated printer"}]
@@ -42,12 +43,15 @@ def discover() -> list[dict[str, str]]:
                             False if status_lower.startswith("not accepting")
                             else True if status_lower.startswith("accepting") else None
                         )
+                        tray_option, trays = cups_trays(name)
                         devices.append({
                             "id": f"printer:{name}", "kind": "printer", "label": name,
                             # CUPS queue state and whether it accepts jobs are
                             # distinct from physical device connectivity.
                             "state": queue_states.get(name, "unknown"),
                             "accepting": accepting_jobs,
+                            "trays": trays,
+                            "tray_option": tray_option,
                         })
         except (OSError, subprocess.TimeoutExpired):
             pass

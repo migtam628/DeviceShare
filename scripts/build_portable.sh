@@ -6,6 +6,9 @@ python -m pip install --upgrade pip
 python -m pip install ".[usb,hid]" "pyinstaller>=6,<8"
 if [[ "${RUNNER_OS:-}" == "Windows" ]]; then
   python -m pip install ".[windows]"
+  windows_imports=(--hidden-import win32print --hidden-import win32gui --hidden-import win32ui --hidden-import PIL.ImageWin --collect-all pypdfium2)
+else
+  windows_imports=()
 fi
 
 agent_name="deviceshare-agent-${suffix}"
@@ -16,7 +19,7 @@ python -m PyInstaller --noconfirm --clean --onefile \
   --hidden-import hid \
   --hidden-import usb.core \
   --hidden-import serial.tools.list_ports \
-  --hidden-import win32print \
+  "${windows_imports[@]}" \
   scripts/agent_launcher.py
 
 python -m PyInstaller --noconfirm --clean --onefile \

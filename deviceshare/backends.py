@@ -11,6 +11,7 @@ from typing import Any
 
 from .models import MAX_PAYLOAD_BYTES
 from .hid_devices import read_report
+from .printer_capabilities import tray_argument
 
 def _payload(job: dict) -> bytes:
     try:
@@ -49,7 +50,8 @@ def _raw_print(printer: str, data: bytes) -> dict[str, str]:
 
 def _document_print(printer: str, data: bytes, mime_type: str, options: dict) -> dict[str, str]:
     if platform.system() == "Windows":
-        raise RuntimeError("Document printing on Windows is not yet supported; use print_raw")
+        from .windows_print import print_document
+        return print_document(printer, data, mime_type, options)
     if mime_type not in ("application/pdf", "image/png"):
         raise ValueError("supported document formats: PDF, PNG")
     if not shutil.which("lp"):
@@ -67,9 +69,13 @@ def _document_print(printer: str, data: bytes, mime_type: str, options: dict) ->
             raise ValueError("copies must be an integer between 1 and 5")
         if media not in ("Letter", "A4") or sides not in ("one-sided", "two-sided-long-edge"):
             raise ValueError("unsupported paper size or duplex setting")
+        source = tray_argument(printer, options.get("tray"))
         command = ["lp", "-d", printer, "-n", str(copies),
                    "-o", "media=" + media, "-o", "sides=" + sides,
-                   "-t", "DeviceShare document", tmp_name]
+                   "-t", "DeviceShare document"]
+        if source:
+            command.extend(["-o", source])
+        command.append(tmp_name)
         result = subprocess.run(command, capture_output=True, timeout=30, check=False)
         if result.returncode:
             raise RuntimeError(result.stderr.decode(errors="replace")[:400])

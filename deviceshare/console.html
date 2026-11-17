@@ -186,11 +186,13 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
 <div><label for="printCopies">Copies</label><select id="printCopies"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>
 <div><label for="printMedia">Paper size</label><select id="printMedia"><option value="Letter">US Letter</option><option value="A4">A4</option></select></div>
 <div><label for="printSides">Sides</label><select id="printSides"><option value="one-sided">Single-sided</option><option value="two-sided-long-edge">Double-sided</option></select></div>
+<div><label for="printTray">Paper source (if available)</label><select id="printTray"><option value="">Printer default</option></select></div>
 </div>
+<p class="sub">Tray choices come from this printer's CUPS configuration. If none are reported, use the operating-system default and verify the correct paper loaded.</p>
 </section>
 <section class="card stack">
 <h3>3. Print action</h3>
-<p class="sub">PDF test pages, text, and PDF/PNG documents currently use CUPS on macOS or Linux. Windows RAW spooler printing is available separately; Windows PDF rendering is not yet implemented.</p>
+<p class="sub">PDF test pages, text, and PDF/PNG documents use CUPS on macOS/Linux and GDI driver rendering on Windows. Printer-driver acceptance is not proof of physical output.</p>
 <div class="callout">Test page prints a one-page PDF with station name, printer name, date, grayscale bars, and an alignment border.</div>
 <button id="testPrint">Print test page</button>
 <div class="divider"></div>
@@ -200,6 +202,17 @@ td{overflow-wrap:anywhere}tr:last-child td{border-bottom:0}.empty{padding:24px;c
 <div class="divider"></div>
 <div><label for="printFile">PDF or PNG document (up to 1 MiB)</label><input type="file" id="printFile" accept=".pdf,.png,application/pdf,image/png"></div>
 <button id="printDocument" class="secondary">Print uploaded document</button>
+<div class="divider"></div>
+<h3>4×6 station label (Zebra / ZPL)</h3>
+<p class="sub">Creates a plain-text identification label for a 203-dpi, ZPL-compatible printer with 4×6 stock. It is <strong>not</strong> paid postage or a carrier-certified shipping label. Configure the destination queue for RAW passthrough.</p>
+<div class="form-grid two">
+<div><label for="labelRecipient">Recipient</label><input id="labelRecipient" maxlength="70" placeholder="Customer name"></div>
+<div><label for="labelReference">Reference / order</label><input id="labelReference" maxlength="64" placeholder="ORDER-123"></div>
+<div><label for="labelAddress1">Street address</label><input id="labelAddress1" maxlength="80"></div>
+<div><label for="labelAddress2">Apartment / suite (optional)</label><input id="labelAddress2" maxlength="80"></div>
+<div><label for="labelCity">City, state, ZIP</label><input id="labelCity" maxlength="90"></div>
+</div>
+<button id="printStationLabel" class="secondary">Print 4×6 station label</button>
 </section>
 </div>
 <div class="stack">
@@ -358,7 +371,12 @@ function renderStudio(){
  const p=printers.find(p=>printerKey(p)===chosen);
  text("studioPrinterStatus",p?(p.device.label+" on "+p.agent.agent_id+". "+statusLabel(p.device)+". "+approvalLabel(p.device)+". "+queueLabel(p.device)+". Physical status must be confirmed at the printer."):"Choose a printer before submitting a test or custom print.");
  const disabled=!p||p.device.state==="disabled"||p.device.allowed===false||p.device.accepting===false;
- for(const id of ["testPrint","printText","printDocument"])el(id).disabled=disabled||busy;
+ const traySelect=el("printTray"),previous=traySelect.value;traySelect.replaceChildren(new Option("Printer default",""));
+ const available=p&&Array.isArray(p.device.trays)?p.device.trays:[];
+ for(const tray of available)traySelect.add(new Option(tray,tray));
+ traySelect.value=available.includes(previous)?previous:"";
+ traySelect.disabled=!available.length;
+ for(const id of ["testPrint","printText","printDocument","printStationLabel"])el(id).disabled=disabled||busy;
 }
 function renderJobs(){
  const target=el("jobsTable");target.replaceChildren();
@@ -443,7 +461,26 @@ function selection(){
  return p;
 }
 function printOpts(){
- return {copies:Number(el("printCopies").value),media:el("printMedia").value,sides:el("printSides").value};
+ const opts={copies:Number(el("printCopies").value),media:el("printMedia").value,sides:el("printSides").value};
+ if(el("printTray").value)opts.tray=el("printTray").value;
+ return opts;
+}
+async function printStationLabel(){
+ if(busy)return;
+ const p=selection();
+ const body={agent_id:p.agent.agent_id,device_id:p.device.id,
+  recipient:el("labelRecipient").value,address_line1:el("labelAddress1").value,
+  address_line2:el("labelAddress2").value,city_state_postal:el("labelCity").value,
+  reference:el("labelReference").value};
+ if(!body.recipient.trim()||!body.address_line1.trim()||!body.city_state_postal.trim()||!body.reference.trim())throw new Error("Fill out recipient, street, city/state/ZIP and reference.");
+ if(!confirm("Send one 4×6 RAW ZPL station label to "+p.device.label+"? This requires a ZPL-compatible label printer with correct 4×6 media. It is not postage."))return;
+ busy=true;renderStudio();
+ try{
+  const result=await api("/v1/print/station-label",{method:"POST",body:JSON.stringify(body)});
+  text("lastPrintJob","Station label job "+result.id.slice(0,12)+" · "+result.status+". Check label stock and physical output.");
+  notify("ZPL station label submitted. Confirm physical output.");
+  await refresh();
+ }finally{busy=false;renderStudio()}
 }
 async function printAction(kind){
  if(busy)return;
@@ -590,6 +627,7 @@ el("customText").addEventListener("input",()=>{text("textPreview",el("customText
 el("testPrint").addEventListener("click",guarded(()=>printAction("test")));
 el("printText").addEventListener("click",guarded(()=>printAction("text")));
 el("printDocument").addEventListener("click",guarded(()=>printAction("file")));
+el("printStationLabel").addEventListener("click",guarded(printStationLabel));
 el("loginForm").addEventListener("submit",event=>{event.preventDefault();guarded(signIn)()});
 el("activateForm").addEventListener("submit",event=>{event.preventDefault();guarded(activateAccount)()});
 el("recoveryForm").addEventListener("submit",event=>{event.preventDefault();guarded(recoverAccount)()});
