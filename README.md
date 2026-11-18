@@ -2,7 +2,13 @@
 
 **DeviceShare** is a self-hosted peripheral bridge for sending print jobs and communicating with locally attached hardware from websites, POS applications, inventory systems, and remote servers.
 
-**Project status: v0.2.0-alpha.8 released for controlled hardware testing.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not expose the Hub directly to the open internet or connect to untrusted devices.
+**Project status: v0.2.0-alpha.9 in validation; alpha.8 is the latest published release.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not expose the Hub directly to the open internet or connect to untrusted devices.
+
+## Backup and recovery (alpha.9)
+
+The Hub executable provides owner-only, local `--backup-db`, `--verify-db`, and `--restore-db ... --restore-to ...` commands. Backups use SQLite's online snapshot mechanism, so the Hub can stay online while the snapshot is created; restores are restricted to a brand-new path and require stopping the Hub before it uses that path. Backups contain private account, station and print-job data and must never be sent to GitHub Actions or shared publicly. Frozen installer smoke tests now exercise backup, integrity verification and a restore to a fresh path.
+
+**[Backup, restore and upgrade-safety instructions](docs/BACKUP_RECOVERY.md)**
 
 ## Printing workflows (alpha.8)
 
@@ -92,7 +98,7 @@ On macOS the native `DeviceShare.app` also has a sidebar with a selectable **Pri
 | USB hardware: VID/PID discovery | Read-only optional pyusb |
 | HID input reports | Implemented: read-only, exact local allowlist; requires `hidapi` |
 | HID output/feature, USB bulk/control | **Not implemented yet** |
-| Windows PDF print rendering | **Not implemented yet** |
+| Windows PDF/PNG print rendering | Implemented in alpha.8; physical Windows printer verification open |
 | Printer status monitoring / proof of print | **Not implemented yet** |
 | Station-specific tokens, rotation, revocation | Implemented in hub API and dashboard |
 | Web management dashboard | Implemented (inventory, jobs, station credentials) |

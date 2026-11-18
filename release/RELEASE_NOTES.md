@@ -1,32 +1,39 @@
-# DeviceShare v0.2.0-alpha.8 — Print Workflow Preview
+# DeviceShare v0.2.0-alpha.9 — Hub Recovery Preview
 
-This prerelease expands printer capabilities for early hardware acceptance. It
-does not assert that any of the new output paths have been physically verified.
+This prerelease adds local disaster-recovery commands to the packaged Hub and
+automated verification of that workflow. It remains for controlled testing,
+**not production deployment**.
 
-- Brother two-tray workflow: macOS/Linux queues expose CUPS `InputSlot` or
-  `media-source` options; the UI offers only reported tray names and the Agent
-  verifies them again before submitting documents.
-- Zebra 4×6: the browser Print Studio generates bounded RAW ZPL station labels
-  for approved label queues. These **are not carrier-paid shipping labels**.
-- Windows x64: PDF and PNG printing now renders document pages with bundled
-  PDFium/Pillow, then submits raster pages using the selected printer driver.
-  Supports A4/Letter, duplex and up to five copies. Windows tray selection
-  remains unsupported.
-- Cross-platform workflow tests cover source validation, generated ZPL,
-  PDFium raster pages, and mocked Windows GDI driver dispatch.
-- Connection recovery and fail-closed scan behavior from alpha.7 remain.
-- Failed and uncertain print jobs are **never automatically resent**.
+- `deviceshare-hub --db <existing-db> --backup-db <new-file>` creates a private
+  consistent snapshot using SQLite's online backup API while the Hub is live.
+- `deviceshare-hub --verify-db <file>` checks SQLite integrity and required
+  DeviceShare tables without changing the source file.
+- `deviceshare-hub --restore-db <backup> --restore-to <new-file>` restores only
+  into a fresh path; refuses existing databases, symlinks and SQLite sidecars.
+- Unix snapshot files are mode 0600; backup contents include private account,
+  station and print data and must be kept confidential.
+- Unit tests cover invalid input, overwrite prevention, preservation of credentials,
+  uncertain-job recovery and command-line execution.
+- Native installer CI smoke tests now verify that frozen Hub executables can
+  back up, validate and restore their own running database.
+- Alpha.8 Brother tray, Zebra 4×6 and Windows PDF/PNG features remain; hardware
+  acceptance is still required before use with customer orders.
 
 ## Packages
 
 Native Apple Silicon/Intel Mac PKG/DMG, Windows x64 MSI/EXE, Debian/Ubuntu AMD64 DEB, and portable ZIP bundles are included. Check `SHA256SUMS.txt` before installing.
 
-## Known limitations
+## Recovery guidance and limitations
 
-This is an unsigned/unnotarized alpha. macOS full logout/reboot persistence,
-Brother physical tray selection, Zebra 4×6 label output, Windows PDF/PNG
-output, HID/serial hardware, upgrade/recovery behavior and proof of physical
-printing remain unverified. An operating system accepting a job is not
-evidence of paper output. See the dedicated printer acceptance guide.
+Read [Backup and Recovery](../docs/BACKUP_RECOVERY.md) **before** upgrading or
+restoring. Backups are not encrypted by the tool; protect them through approved
+encrypted storage and operating-system access controls. Restore to a new path
+while the Hub is stopped; verify printers and queued jobs before resuming work.
 
-See [printer acceptance](../docs/PRINT_ACCEPTANCE.md), [macOS setup](../docs/MAC_APP.md), [diagnostics](../docs/DIAGNOSTICS.md), and [hardware acceptance](https://github.com/migtam628/DeviceShare/issues/1).
+Physical Brother/Zebra/Windows verification, Mac logout/reboot persistence,
+real upgrade/restore drills, Developer ID signing/notarization, HID/serial
+hardware tests and production monitoring remain open. A spooler accepting a
+job is not proof that a physical page printed.
+
+See [hardware acceptance](https://github.com/migtam628/DeviceShare/issues/1)
+and [macOS setup](../docs/MAC_APP.md).

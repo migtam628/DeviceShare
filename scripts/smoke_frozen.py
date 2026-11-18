@@ -59,6 +59,19 @@ def check_hub(binary: str):
                     if b"DeviceShare Console" not in html:
                         raise RuntimeError("Frozen hub did not include dashboard asset")
                 print("Frozen hub /healthz and /dashboard OK", flush=True)
+                # Exercise packaged backup commands against the running Hub DB.
+                snapshot = Path(temp) / "snapshot.db"
+                restored = Path(temp) / "restored.db"
+                for action in (
+                    ["--backup-db", str(snapshot)],
+                    ["--verify-db", str(snapshot)],
+                    ["--restore-db", str(snapshot), "--restore-to", str(restored)],
+                ):
+                    subprocess.run([binary, "--db", env["DEVICESHARE_DB"], *action],
+                                   capture_output=True, text=True, timeout=40, check=True)
+                if not restored.is_file():
+                    raise RuntimeError("Frozen Hub recovery command did not create restored DB")
+                print("Frozen Hub online backup / verification / restore OK", flush=True)
             except Exception:
                 log.flush()
                 print(Path(temp, "hub.log").read_text(errors="replace"), file=sys.stderr)

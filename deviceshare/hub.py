@@ -9,6 +9,7 @@ import json
 import os
 import re
 import secrets
+import sqlite3
 import time
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -59,7 +60,7 @@ def create_app(
     if agent_token and (len(agent_token) < 16 or secrets.compare_digest(api_key, agent_token)):
         raise RuntimeError("Legacy agent token must be distinct from the API key (16+ characters)")
     store = Store(store_path or os.environ.get("DEVICESHARE_DB", "./data/deviceshare.db"))
-    app = FastAPI(title="DeviceShare", version="0.2.0a8",
+    app = FastAPI(title="DeviceShare", version="0.2.0a9",
                   description="DeviceShare API. Printing accepted by an OS queue does not prove paper output.")
     clients: dict[str, AgentConnection] = {}
     app.state.store = store
@@ -529,16 +530,40 @@ def create_app(
 
 def main():
     parser = argparse.ArgumentParser(description="DeviceShare HTTP hub")
-    parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a8")
+    parser.add_argument("--version", action="version", version="DeviceShare Hub 0.2.0a9")
+    parser.add_argument("--db", default=os.getenv("DEVICESHARE_DB", "./data/deviceshare.db"),
+                        help="Hub database path (also used for local backup and owner setup)")
     parser.add_argument("--api-key-file", default=os.getenv("DEVICESHARE_API_KEY_FILE"),
                         help="Read administrator API key from a private file instead of shell environment")
-    parser.add_argument("--issue-activation-code", action="store_true",
-                        help="Local owner setup: print a 10-minute one-use activation code and exit")
-    parser.add_argument("--issue-recovery-code", action="store_true",
-                        help="Local account recovery: print a 10-minute password-reset code and exit")
+    actions = parser.add_mutually_exclusive_group()
+    actions.add_argument("--issue-activation-code", action="store_true",
+                         help="Local owner setup: print a 10-minute one-use activation code and exit")
+    actions.add_argument("--issue-recovery-code", action="store_true",
+                         help="Local account recovery: print a 10-minute password-reset code and exit")
+    actions.add_argument("--backup-db", metavar="NEW_FILE", help="Create a private online database snapshot")
+    actions.add_argument("--verify-db", metavar="FILE", help="Check a DeviceShare snapshot without changing it")
+    actions.add_argument("--restore-db", metavar="FILE", help="Restore a snapshot to --restore-to NEW_FILE")
+    parser.add_argument("--restore-to", metavar="NEW_FILE", help="Nonexistent destination for --restore-db")
     args = parser.parse_args()
+    if bool(args.restore_db) != bool(args.restore_to):
+        parser.error("--restore-db and --restore-to must be supplied together")
+    if args.backup_db or args.verify_db or args.restore_db:
+        from .backup import backup_database, restore_database, verify_database
+        try:
+            if args.backup_db:
+                backup_database(args.db, args.backup_db)
+                print(f"DeviceShare backup created: {args.backup_db}")
+            elif args.verify_db:
+                verify_database(args.verify_db)
+                print("DeviceShare database integrity and schema verified")
+            else:
+                restore_database(args.restore_db, args.restore_to)
+                print(f"DeviceShare restored to fresh path: {args.restore_to}; Hub must be stopped before use")
+        except (OSError, ValueError, sqlite3.DatabaseError) as exc:
+            parser.error(str(exc))
+        return
     if args.issue_activation_code or args.issue_recovery_code:
-        database = Store(os.getenv("DEVICESHARE_DB", "./data/deviceshare.db"))
+        database = Store(args.db)
         purpose = "reset" if args.issue_recovery_code else "activate"
         try:
             code = database.issue_activation_code(purpose)
@@ -553,7 +578,7 @@ def main():
             parser.error("Administrator key file must have private permissions (chmod 600)")
         key = file_path.read_text(encoding="utf-8").strip()
     # Loopback by default. For remote access, put TLS and authentication in front.
-    uvicorn.run(create_app(api_key=key), host=os.getenv("DEVICESHARE_HOST", "127.0.0.1"),
+    uvicorn.run(create_app(store_path=args.db, api_key=key), host=os.getenv("DEVICESHARE_HOST", "127.0.0.1"),
                 port=int(os.getenv("DEVICESHARE_PORT", "8765")))
 
 if __name__ == "__main__":

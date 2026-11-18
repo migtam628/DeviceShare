@@ -15,7 +15,7 @@ install -m 0644 docs/INSTALL_NATIVE.md "$staging/usr/share/doc/deviceshare/INSTA
 install -m 0644 SECURITY.md "$staging/usr/share/doc/deviceshare/SECURITY.md"
 cat > "$staging/DEBIAN/control" <<'CONTROL'
 Package: deviceshare
-Version: 0.2.0~alpha8
+Version: 0.2.0~alpha9
 Section: utils
 Priority: optional
 Architecture: amd64
