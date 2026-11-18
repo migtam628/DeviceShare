@@ -2,9 +2,9 @@
 
 **DeviceShare** is a self-hosted peripheral bridge for sending print jobs and communicating with locally attached hardware from websites, POS applications, inventory systems, and remote servers.
 
-**Project status: v0.2.0-alpha.10 in validation; alpha.9 is the latest published release.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not expose the Hub directly to the open internet or connect to untrusted devices.
+**Project status: v0.2.0-alpha.10 published as a prerelease.** Native macOS SwiftUI app and cross-platform installers are available. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not expose the Hub directly to the open internet or connect to untrusted devices.
 
-## Install, sign in, done — macOS (alpha.10 preview)
+## Install, sign in, done — macOS (alpha.10)
 
 Open `DeviceShare.app` after installation and enter your email and password. On the first run, the app creates the local administrator account if needed, starts the loopback-only Hub, generates a unique station ID, pairs a private station credential, discovers and locally approves already-installed printer queues, and enables the per-user background Agent. Returning owners can sign in with the existing account. **No manual Hub key, token, station ID, Terminal command, or service-start sequence is necessary.**
 
@@ -38,7 +38,7 @@ Use **Settings** to change the password, revoke remembered browser sessions, and
 - The Agent recovers from temporary OS device-scan errors and reports them to the Hub; an inventory-scan warning clears after a successful scan.
 - Failed inventory transmissions trigger a new WebSocket connection with bounded backoff. Malformed Hub messages are ignored, and uncertain jobs are never blindly reprinted.
 - Generated test-page and custom-text prints are blocked when the last scan failed; Mac Services warns about an older competing LaunchAgent and offers a connection recheck.
-- **Distribution:** [Alpha.9 published native installers](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.9) are available through GitHub Releases. Signed/notarized packages and physical Zebra/Brother/reboot acceptance remain open.
+- **Distribution:** [Alpha.10 native installers](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.10) are available through GitHub Releases. Signed/notarized packages and physical Zebra/Brother/reboot acceptance remain open.
 
 ## Diagnostics and Printer Center (alpha.6)
 
@@ -51,16 +51,16 @@ Read the [Diagnostics guide](docs/DIAGNOSTICS.md) and [Mac acceptance issue](htt
 
 ## Native installation packages
 
-**[Download DeviceShare v0.2.0-alpha.9](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.9)**
+**[Download DeviceShare v0.2.0-alpha.10](https://github.com/migtam628/DeviceShare/releases/tag/v0.2.0-alpha.10)**
 
 | Platform | Native installer |
 | --- | --- |
-| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.9/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.9/DeviceShare-Setup-windows-x64.exe) |
-| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.9/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.9/DeviceShare-macos-arm64.pkg) |
-| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.9/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.9/DeviceShare-macos-x64.pkg) |
-| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.9/DeviceShare_0.2.0.alpha9_amd64.deb) |
+| Windows x64 | [MSI](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.10/DeviceShare-windows-x64.msi) or [setup EXE](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.10/DeviceShare-Setup-windows-x64.exe) |
+| macOS Apple Silicon | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.10/DeviceShare-macos-arm64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.10/DeviceShare-macos-arm64.pkg) |
+| macOS Intel | [DMG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.10/DeviceShare-macos-x64.dmg) or [PKG](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.10/DeviceShare-macos-x64.pkg) |
+| Debian / Ubuntu AMD64 | [DEB](https://github.com/migtam628/DeviceShare/releases/download/v0.2.0-alpha.10/DeviceShare_0.2.0.alpha10_amd64.deb) |
 
-Read **[native installer setup](docs/INSTALL_NATIVE.md)** and compare downloads with the release's `SHA256SUMS.txt`. Installer files include both the Agent and Hub; they do not automatically authorize peripherals or install OS drivers. Portable ZIP builds remain available.
+Read **[native installer setup](docs/INSTALL_NATIVE.md)** and compare downloads with the release's `SHA256SUMS.txt`. Installer files include both the Agent and Hub; the new Mac app automatically authorizes existing printer queues after owner sign-in, while Windows/Linux still require manual onboarding. No installer adds OS printer drivers or silently authorizes serial/HID devices. Portable ZIP builds remain available.
 
 ### DeviceShare.app on macOS
 
