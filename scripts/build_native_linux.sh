@@ -27,7 +27,8 @@ Description: DeviceShare local and remote peripheral bridge
 Homepage: https://github.com/migtam628/DeviceShare
 CONTROL
 mkdir -p release-assets
-deb="release-assets/DeviceShare_0.2.0.alpha8_amd64.deb"
+version="$(sed -n 's/^Version: //p' "$staging/DEBIAN/control")"
+deb="release-assets/DeviceShare_${version//~alpha/.alpha}_amd64.deb"
 dpkg-deb --root-owner-group --build "$staging" "$deb"
 dpkg-deb --info "$deb"
 dpkg-deb --contents "$deb" | grep -E 'usr/bin/deviceshare-(agent|hub)'
