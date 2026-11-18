@@ -12,7 +12,7 @@ Please do not publicly post vulnerability details while they could enable real d
 - Use a high-entropy administrator API key and unique station tokens; the hub stores only token hashes. Rotate or revoke from the dashboard. Do not store secrets in source control or logs.
 - Never expose an agent-controlled arbitrary shell or unrestricted USB command endpoint.
 - HID input report operations are read-only, bounded and denied unless the exact local HID device ID is explicitly authorized. Treat device metadata and report bytes as sensitive. The OS may block direct HID reads and that restriction should not be bypassed.
-- Explicitly authorize each physical printer or serial device on the local agent.
+- In the macOS one-step flow, owner sign-in locally authorizes OS-installed printer queues. Review or remove those approvals in Printers; serial ports and HID devices still require explicit, individual local authorization.
 - Treat physical devices as potentially hazardous. Never assume they understand a byte sequence safely.
 - Protect printer content and transmitted serial data as potentially confidential.
 - Validate jobs before executing and audit each job by ID and submitting system.

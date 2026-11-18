@@ -2,7 +2,13 @@
 
 **DeviceShare** is a self-hosted peripheral bridge for sending print jobs and communicating with locally attached hardware from websites, POS applications, inventory systems, and remote servers.
 
-**Project status: v0.2.0-alpha.9 released for controlled hardware and recovery testing.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not expose the Hub directly to the open internet or connect to untrusted devices.
+**Project status: v0.2.0-alpha.10 in validation; alpha.9 is the latest published release.** Native macOS SwiftUI app and cross-platform installers are available as a prerelease. The Mac app is ad-hoc signed, not Developer-ID-signed/notarized; other packages are unsigned and the project is not production-hardened. Do not expose the Hub directly to the open internet or connect to untrusted devices.
+
+## Install, sign in, done — macOS (alpha.10 preview)
+
+Open `DeviceShare.app` after installation and enter your email and password. On the first run, the app creates the local administrator account if needed, starts the loopback-only Hub, generates a unique station ID, pairs a private station credential, discovers and locally approves already-installed printer queues, and enables the per-user background Agent. Returning owners can sign in with the existing account. **No manual Hub key, token, station ID, Terminal command, or service-start sequence is necessary.**
+
+Previously configured credentials and device permissions are kept where possible. Serial/HID devices are **never automatically approved**. Printer drivers must already be installed in macOS; unsupported devices or another conflicting legacy Agent may require attention under Advanced. This streamlined native UI is currently **macOS-only**; Windows and Linux installers still require configuration. See [native setup](docs/INSTALL_NATIVE.md).
 
 ## Backup and recovery (alpha.9)
 

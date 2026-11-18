@@ -68,7 +68,7 @@ accepted on real hardware before use in production. See [print acceptance](PRINT
 
 ## macOS Apple Silicon or Intel
 
-**Version 0.2.0-alpha.4** includes a real native SwiftUI
+**Version 0.2.0-alpha.10** includes a real native SwiftUI
 `/Applications/DeviceShare.app` with station setup, local-hub management,
 pairing, device approvals and per-user service start/stop.
 
@@ -83,26 +83,23 @@ pairing, device approvals and per-user service start/stop.
   executables but does **not** install the two optional command-line links.
   Do not run the app from the mounted disk image; move it to Applications first.
 
-### First launch
+### First launch: install and sign in
 
-1. Open Finder → Applications → **DeviceShare**.
-2. Under **First-run setup**, click **Start Local Hub** if this Mac will
-   host both the hub and agent, or enter the HTTPS URL of an existing
-   DeviceShare hub.
-3. Enter a unique Station ID, then **Save Station Settings**.
-4. Choose **Pair / Rotate Credential**. The local hub uses a newly
-   generated private administrator key file. A remote hub requires you
-   to enter its admin key (used once, not saved by the app).
-   Alternatively, paste a pre-issued station token.
-5. Select **Local devices** and scan. Explicitly approve only printers,
-   serial ports, and read-only HID devices that you trust, then save.
-6. Under **Background services**, click **Start / Restart** for the
-   Peripheral Agent. A per-user LaunchAgent enables reconnection while
-   your user session is active.
-7. Use **Open Hub Dashboard** to confirm the station shows as online;
-   a loaded LaunchAgent is not proof of a working network connection.
+1. Install the PKG (or move the DMG's app into `/Applications`) and open **DeviceShare**.
+2. Enter your email and password. On first use, the same screen creates the
+   owner account. Returning owners simply sign in.
 
-The app never grants blanket USB access or opens the hub to your network.
+The app automatically starts the loopback-only Hub, creates a stable station ID
+and private credential, discovers and locally approves **OS-installed printer
+queues**, then enables the background Agent. User data, existing credentials and
+device permissions survive upgrades. Printer drivers must already be installed
+in macOS.
+
+Serial and HID devices **still require explicit approval**. A conflicting
+legacy Agent or unusual remote Hub setup may need attention under Advanced,
+which also retains manual pairing and troubleshooting controls.
+
+The app never grants blanket USB/HID access or opens the hub to your network.
 Its local hub binds to loopback `127.0.0.1:8765` only.
 
 ### Local state and diagnostics
@@ -120,7 +117,8 @@ Persistent user data stays outside the installer in:
 ```
 
 Files containing tokens, keys and configs have private permissions. The
-LaunchAgent plists are created only after you explicitly start a service:
+LaunchAgent plists are created automatically by the first-run flow (Hub on
+app launch and Agent after successful sign-in):
 
 ```text
 ~/Library/LaunchAgents/com.mttechservices.deviceshare.agent.plist
@@ -156,7 +154,7 @@ Do not bypass organizational device policies to run it.
 Install:
 
 ```bash
-sudo apt install ./DeviceShare_0.2.0.alpha6_amd64.deb
+sudo apt install ./DeviceShare_0.2.0.alpha10_amd64.deb
 deviceshare-agent --version
 deviceshare-hub --version
 ```

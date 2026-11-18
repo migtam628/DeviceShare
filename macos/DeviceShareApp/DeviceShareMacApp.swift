@@ -21,6 +21,7 @@ struct DeviceShareMacApp: App {
 struct DeviceShareHome: View {
     @ObservedObject var controller: DeviceShareController
     @State private var currentTab: Tab = .setup
+    @State private var showAdvancedSetup = false
 
     private enum Tab: String, CaseIterable {
         case setup = "Overview"
@@ -47,7 +48,7 @@ struct DeviceShareHome: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
-                    Text("v0.2.0-alpha.9").font(.caption.monospacedDigit())
+                    Text("v0.2.0-alpha.10").font(.caption.monospacedDigit())
                     Text("Agent: " + controller.agentState)
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -123,7 +124,7 @@ struct DeviceShareHome: View {
             }
         }
         .padding(20)
-        .onAppear { controller.refreshServices() }
+        .onAppear { controller.prepareQuickStart() }
         .onChange(of: currentTab) { tab in
             if tab == .services { controller.refreshServices() }
         }
@@ -143,14 +144,19 @@ struct DeviceShareHome: View {
 
     @ViewBuilder
     private var selectedPanel: some View {
-        switch currentTab {
-        case .setup: setupPanel
-        case .printers: printerPanel
-        case .studio: studioPanel
-        case .devices: devicePanel
-        case .diagnostics: diagnosticsPanel
-        case .services: servicesPanel
-        case .settings: settingsPanel
+        if !controller.quickStartComplete && !showAdvancedSetup {
+            quickStartPanel
+        } else {
+            switch currentTab {
+            case .setup:
+                if showAdvancedSetup { setupPanel } else { quickStartPanel }
+            case .printers: printerPanel
+            case .studio: studioPanel
+            case .devices: devicePanel
+            case .diagnostics: diagnosticsPanel
+            case .services: servicesPanel
+            case .settings: settingsPanel
+            }
         }
     }
 
@@ -165,9 +171,100 @@ struct DeviceShareHome: View {
         .background(Color.accentColor.opacity(done ? 0.10 : 0.03), in: Capsule())
     }
 
+    private var quickStartPanel: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(controller.quickStartComplete ? "You're connected" : "Welcome to DeviceShare")
+                        .font(.system(size: 28, weight: .bold))
+                    Text(controller.quickStartComplete
+                         ? "Your local station runs automatically in the background."
+                         : "Sign in once on this Mac. We'll connect the Hub and your installed printers for you.")
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.top, 14)
+
+                if controller.quickStartComplete {
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 16) {
+                            Label("Signed in", systemImage: "checkmark.shield.fill")
+                                .foregroundStyle(Color.green).font(.headline)
+                            HStack(spacing: 10) {
+                                setupStatus("Hub", done: controller.hubHealth == "Hub responding")
+                                setupStatus("Station", done: controller.agentConnected)
+                                setupStatus("Printers", done: !controller.availablePrinters.isEmpty)
+                            }
+                            Text(controller.availablePrinters.isEmpty
+                                 ? "No OS printers detected yet. Add a printer in macOS System Settings when you're ready to print."
+                                 : "Detected local printer queues are automatically available to this signed-in owner. Serial and HID devices still require explicit approval.")
+                                .font(.subheadline).foregroundStyle(.secondary)
+                            HStack {
+                                Button("Open Printers") { currentTab = .printers }
+                                    .buttonStyle(.borderedProminent)
+                                Button("Open Print Studio") { currentTab = .studio }
+                                Spacer()
+                            }
+                        }.padding(10)
+                    }
+                } else {
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 15) {
+                            Text(controller.adminActivated ? "Sign in" : "Set up your account")
+                                .font(.title3.bold())
+                            TextField("Email address", text: $controller.quickStartEmail)
+                                .textContentType(.username)
+                                .textFieldStyle(.roundedBorder)
+                                .disabled(controller.quickStartBusy)
+                            SecureField("Password (12+ characters)", text: $controller.quickStartPassword)
+                                .textContentType(controller.adminActivated ? .password : .newPassword)
+                                .textFieldStyle(.roundedBorder)
+                                .disabled(controller.quickStartBusy)
+                            Text(controller.quickStartMessage)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                            Button {
+                                controller.signInAndConnect()
+                            } label: {
+                                HStack {
+                                    if controller.quickStartBusy { ProgressView().controlSize(.small) }
+                                    Text(controller.adminActivated ? "Sign In & Connect" : "Create Account & Connect")
+                                }.frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(controller.quickStartBusy || !controller.accountStatusKnown ||
+                                      controller.quickStartEmail.isEmpty || controller.quickStartPassword.count < 12)
+                            if !controller.accountStatusKnown && !controller.quickStartBusy {
+                                Button("Retry connection") { controller.retryQuickStart() }
+                                    .buttonStyle(.link)
+                            }
+                            Text("Your password stays with the Hub. DeviceShare automatically pairs this Mac and shares only installed printer queues after sign-in; no terminal commands or token entry required.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }.padding(12)
+                    }
+                }
+                HStack {
+                    Spacer()
+                    Button("Advanced setup and troubleshooting") {
+                        showAdvancedSetup = true
+                    }
+                    .font(.caption)
+                    .buttonStyle(.link)
+                }
+            }
+            .frame(maxWidth: 580, alignment: .leading)
+            .frame(maxWidth: .infinity)
+            .padding(16)
+        }
+    }
+
     private var setupPanel: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
+                HStack {
+                    Button("← Back to simple setup") { showAdvancedSetup = false }
+                        .buttonStyle(.link)
+                    Spacer()
+                }
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Activate DeviceShare")
                         .font(.title2.bold())
@@ -821,7 +918,7 @@ struct DeviceShareHome: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("About & security").font(.headline)
-                        Text("DeviceShare v0.2.0-alpha.9")
+                        Text("DeviceShare v0.2.0-alpha.10")
                         Text("The web dashboard uses email and password with remembered HttpOnly browser sessions. The local app retains a separate private machine credential for agent provisioning. Optional remote integration keys are kept in macOS Keychain.")
                             .font(.caption).foregroundStyle(.secondary)
                         Text("Unsigned developer alpha. Limit the Hub to loopback or HTTPS on a trusted network. A print job accepted by the spooler does not prove physical paper output.")
