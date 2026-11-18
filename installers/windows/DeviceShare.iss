@@ -2,7 +2,7 @@
   #error "Build with /DSourceRoot=<repository-root>"
 #endif
 #ifndef AppVersion
-  #define AppVersion "0.2.0-alpha.9"
+  #define AppVersion "0.2.0-alpha.10"
 #endif
 
 [Setup]

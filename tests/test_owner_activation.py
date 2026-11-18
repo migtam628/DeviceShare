@@ -29,6 +29,24 @@ def activate(client, code):
     return client.cookies.get("deviceshare_admin_session")
 
 
+def test_signed_in_owner_can_pair_station_without_manual_admin_key(tmp_path):
+    """Native one-step setup uses a session cookie, never a copied Hub key."""
+    with make_client(tmp_path) as client:
+        activate(client, issue_code(client))
+        client.cookies.clear()
+        login = client.post("/v1/auth/login", headers=CSRF, json={
+            "email": "admin@example.com", "password": "A longer secure passphrase 123!",
+            "remember": True,
+        })
+        assert login.status_code == 200
+        assert client.post("/v1/agents/mac-auto/credential").status_code == 403
+        paired = client.post("/v1/agents/mac-auto/credential", headers=CSRF)
+        assert paired.status_code == 200, paired.text
+        token = paired.json()["token"]
+        assert len(token) >= 16
+        assert client.app.state.store.verify_agent_credential("mac-auto", token)
+
+
 def test_local_activation_login_recovery_and_rotation(tmp_path):
     with make_client(tmp_path) as client:
         assert client.get("/v1/auth/status").json()["activated"] is False

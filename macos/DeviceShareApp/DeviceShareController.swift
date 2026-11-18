@@ -59,6 +59,12 @@ final class DeviceShareController: ObservableObject {
     @Published var agentConnectivityNote = "Station connection not checked"
     @Published var legacyAgentDetected = false
     @Published var adminActivated = false
+    @Published var accountStatusKnown = false
+    @Published var quickStartEmail = ""
+    @Published var quickStartPassword = ""
+    @Published var quickStartBusy = false
+    @Published var quickStartComplete = false
+    @Published var quickStartMessage = "Checking your local DeviceShare service…"
     @Published var adminSetupEmail = ""
     @Published var adminSetupPassword = ""
     @Published var adminSetupConfirmation = ""
@@ -80,6 +86,10 @@ final class DeviceShareController: ObservableObject {
     private let agentLabel = "com.mttechservices.deviceshare.agent"
     private let hubLabel = "com.mttechservices.deviceshare.hub"
     private let legacyAgentLabel = "com.deviceshare.agent"
+    private var quickStartPrepared = false
+    private var appBuild: String {
+        (Bundle.main.infoDictionary?["CFBundleVersion"] as? String) ?? "dev"
+    }
 
     private var supportURL: URL {
         FileManager.default.homeDirectoryForCurrentUser
@@ -106,6 +116,7 @@ final class DeviceShareController: ObservableObject {
     var applicationSupportLocation: String { supportURL.path }
 
     init() {
+        quickStartEmail = UserDefaults.standard.string(forKey: "deviceshare_owner_email") ?? ""
         selectedPrinterID = UserDefaults.standard.string(forKey: "deviceshare_selected_printer") ?? ""
         if let config = try? readConfig() {
             if let value = config["hub_url"] as? String { hubURL = value }
@@ -116,6 +127,9 @@ final class DeviceShareController: ObservableObject {
             approvals = Set(printerNames.map { "printer:" + $0 }
                 + serialNames.map { "serial:" + $0 } + hidNames)
             peripherals = approvals.sorted().map { LocalPeripheral(id: $0, kind: "saved", label: $0 + " (previously approved)", state: nil, accepting: nil) }
+        } else {
+            // Stable after first sign-in, unique across machines sharing a remote Hub.
+            stationID = "mac-" + UUID().uuidString.prefix(12).lowercased()
         }
     }
 
@@ -284,6 +298,217 @@ final class DeviceShareController: ObservableObject {
             savedAdminKeyAvailable = false
             notice = "Saved remote administrator key removed from macOS Keychain."
         } catch { notice = error.localizedDescription }
+    }
+
+    // One-step owner experience. The Hub is local by default; remote setup is
+    // still available under Advanced, without exposing its administrator key.
+    func prepareQuickStart() {
+        guard !quickStartPrepared else { return }
+        quickStartPrepared = true
+        do {
+            let hub = try validatedHubURL()
+            if ["127.0.0.1", "localhost", "::1"].contains(hub.host?.lowercased() ?? ""),
+               (hub.port ?? 8765) == 8765 {
+                let upgraded = UserDefaults.standard.string(forKey: "deviceshare_hub_build") != appBuild
+                if !isLoaded(hubLabel) || upgraded {
+                    startLocalHub()
+                    if isLoaded(hubLabel) {
+                        UserDefaults.standard.set(appBuild, forKey: "deviceshare_hub_build")
+                    }
+                }
+            }
+        } catch { quickStartMessage = error.localizedDescription }
+        Task {
+            do {
+                let hub = try validatedHubURL()
+                let status = try await fetchAccountStatus(hub)
+                adminActivated = status.activated
+                accountStatusKnown = true
+                if status.authenticated {
+                    quickStartBusy = true
+                    defer { quickStartBusy = false }
+                    try await provisionSignedInStation(hub)
+                    quickStartComplete = true
+                    quickStartMessage = "Welcome back. Your station is configured automatically."
+                } else {
+                    quickStartMessage = status.activated
+                        ? "Sign in with your DeviceShare account."
+                        : "Enter your email and choose a password to get started."
+                }
+            } catch {
+                accountStatusKnown = false
+                quickStartMessage = "Could not connect to DeviceShare: " + error.localizedDescription
+            }
+        }
+    }
+
+    func retryQuickStart() {
+        guard !quickStartBusy else { return }
+        quickStartPrepared = false
+        quickStartMessage = "Retrying connection…"
+        prepareQuickStart()
+    }
+
+    private func fetchAccountStatus(_ hub: URL) async throws -> (activated: Bool, authenticated: Bool) {
+        var lastError: Error?
+        for attempt in 0..<10 {
+            do {
+                var request = URLRequest(url: hub.appendingPathComponent("v1/auth/status"))
+                request.timeoutInterval = 4
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200,
+                      let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    throw NSError(domain: "DeviceShare", code: 210,
+                                  userInfo: [NSLocalizedDescriptionKey: "Account status unavailable"])
+                }
+                return (object["activated"] as? Bool == true,
+                        object["authenticated"] as? Bool == true)
+            } catch {
+                lastError = error
+                if attempt < 9 { try? await Task.sleep(nanoseconds: 350_000_000) }
+            }
+        }
+        throw lastError ?? NSError(domain: "DeviceShare", code: 211,
+                                   userInfo: [NSLocalizedDescriptionKey: "Hub is not responding"])
+    }
+
+    private func accountPost(_ hub: URL, path: String, body: [String: Any],
+                             hostKey: String? = nil) async throws -> [String: Any] {
+        var request = URLRequest(url: hub.appendingPathComponent(path))
+        request.httpMethod = "POST"
+        request.timeoutInterval = 15
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("1", forHTTPHeaderField: "X-DeviceShare-CSRF")
+        if let hostKey { request.setValue(hostKey, forHTTPHeaderField: "X-API-Key") }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200...299).contains(code) else {
+            let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let detail = object?["detail"] as? String ?? "Request failed (HTTP \(code))"
+            throw NSError(domain: "DeviceShare", code: code,
+                          userInfo: [NSLocalizedDescriptionKey: detail])
+        }
+        return (try? JSONSerialization.jsonObject(with: data) as? [String: Any]) ?? [:]
+    }
+
+    func signInAndConnect() {
+        guard !quickStartBusy else { return }
+        let email = quickStartEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let password = quickStartPassword
+        guard !email.isEmpty && password.count >= 12 else {
+            quickStartMessage = "Enter your email and a password of at least 12 characters."
+            return
+        }
+        quickStartBusy = true
+        quickStartMessage = "Signing in and preparing your station…"
+        Task {
+            defer { quickStartPassword = ""; quickStartBusy = false }
+            do {
+                let hub = try validatedHubURL()
+                let status = try await fetchAccountStatus(hub)
+                accountStatusKnown = true
+                adminActivated = status.activated
+                if status.activated {
+                    _ = try await accountPost(hub, path: "v1/auth/login", body: [
+                        "email": email, "password": password, "remember": true
+                    ])
+                } else {
+                    guard let hostKey = localHubKey(for: hub), hostKey.count >= 16 else {
+                        throw NSError(domain: "DeviceShare", code: 212,
+                            userInfo: [NSLocalizedDescriptionKey:
+                                "First-time account creation must happen on the Hub computer. Open Advanced for a remote Hub."])
+                    }
+                    let result = try await accountPost(hub, path: "v1/auth/code",
+                                                       body: ["purpose": "activate"], hostKey: hostKey)
+                    guard let code = result["code"] as? String else {
+                        throw NSError(domain: "DeviceShare", code: 213,
+                            userInfo: [NSLocalizedDescriptionKey: "Hub did not return an activation code"])
+                    }
+                    _ = try await accountPost(hub, path: "v1/auth/activate", body: [
+                        "code": code, "email": email, "password": password, "remember": true
+                    ])
+                    adminActivated = true
+                }
+                quickStartMessage = "Signed in. Connecting local printers…"
+                try await provisionSignedInStation(hub)
+                quickStartComplete = true
+                UserDefaults.standard.set(email, forKey: "deviceshare_owner_email")
+                quickStartMessage = "You're signed in. DeviceShare configured this station automatically."
+                notice = quickStartMessage
+            } catch {
+                quickStartMessage = error.localizedDescription
+                notice = quickStartMessage
+            }
+        }
+    }
+
+    private func provisionSignedInStation(_ hub: URL) async throws {
+        if isLoaded(legacyAgentLabel) {
+            throw NSError(domain: "DeviceShare", code: 214,
+                userInfo: [NSLocalizedDescriptionKey:
+                    "An old DeviceShare Agent is running. Open Advanced → Services to resolve the conflict."])
+        }
+        // A signed-in owner authorizes OS-installed printer queues only. Serial
+        // and HID permissions remain explicitly opt-in and never auto-enable.
+        let binary = agentBinary
+        var found: [LocalPeripheral] = []
+        do {
+            let (scanCode, scanData) = try await Task.detached(priority: .userInitiated) {
+                try Self.capture(binary, arguments: ["--list-devices"])
+            }.value
+            if scanCode == 0 {
+                found = try JSONDecoder().decode([LocalPeripheral].self, from: scanData)
+            }
+        } catch {
+            // Printer driver/discovery issues do not prevent a successful login
+            // or a station connection. The Printers page can retry later.
+            notice = "Signed in. Printer discovery needs attention: " + error.localizedDescription
+        }
+        let printers = found.filter {
+            $0.id.hasPrefix("printer:") && $0.state != "disabled" && $0.accepting != false
+        }
+        let previousApprovals = approvals
+        approvals.formUnion(printers.map(\.id))
+        peripherals = found.sorted { $0.kind + $0.label < $1.kind + $1.label }
+        if !printers.contains(where: { $0.id == selectedPrinterID }), let first = printers.first {
+            choosePrinter(first.id)
+        }
+
+        let previousHub = (try? readConfig()).flatMap { $0["hub_url"] as? String }
+        let needsPairing = !hasToken || previousHub != hubURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        try saveConfiguration()
+        if needsPairing {
+            let encoded = stationID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? stationID
+            var request = URLRequest(url: hub.appendingPathComponent("v1/agents/" + encoded + "/credential"))
+            request.httpMethod = "POST"
+            request.timeoutInterval = 15
+            request.setValue("1", forHTTPHeaderField: "X-DeviceShare-CSRF")
+            // Remote provisioning uses the authenticated session cookie; for a
+            // local Hub the private host key works even if cookies are blocked.
+            if let key = localHubKey(for: hub) {
+                request.setValue(key, forHTTPHeaderField: "X-API-Key")
+            }
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200,
+                  let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let token = object["token"] as? String, token.count >= 16 else {
+                throw NSError(domain: "DeviceShare", code: 216,
+                    userInfo: [NSLocalizedDescriptionKey: "Station pairing failed. Check the Hub connection."])
+            }
+            try writePrivate(Data(token.utf8), to: tokenURL)
+        }
+        let upgraded = UserDefaults.standard.string(forKey: "deviceshare_agent_build") != appBuild
+        if !isLoaded(agentLabel) || needsPairing || approvals != previousApprovals || upgraded {
+            try installLaunchAgent(label: agentLabel, binary: agentBinary,
+                                   arguments: ["--config", configURL.path])
+        }
+        UserDefaults.standard.set(appBuild, forKey: "deviceshare_agent_build")
+        refreshServices()
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            checkAgentConnection()
+        }
     }
 
     func refreshActivationStatus() {
