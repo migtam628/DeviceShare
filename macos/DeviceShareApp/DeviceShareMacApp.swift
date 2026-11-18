@@ -216,7 +216,7 @@ struct DeviceShareHome: View {
                                 .textFieldStyle(.roundedBorder)
                                 .disabled(controller.quickStartBusy)
                             SecureField("Password (12+ characters)", text: $controller.quickStartPassword)
-                                .textContentType(controller.adminActivated ? .password : .newPassword)
+                                .textContentType(.password)
                                 .textFieldStyle(.roundedBorder)
                                 .disabled(controller.quickStartBusy)
                             Text(controller.quickStartMessage)
