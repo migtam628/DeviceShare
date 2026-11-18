@@ -47,7 +47,7 @@ struct DeviceShareHome: View {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 3) {
-                    Text("v0.2.0-alpha.8").font(.caption.monospacedDigit())
+                    Text("v0.2.0-alpha.9").font(.caption.monospacedDigit())
                     Text("Agent: " + controller.agentState)
                         .font(.caption).foregroundStyle(.secondary)
                 }
@@ -821,7 +821,7 @@ struct DeviceShareHome: View {
                 GroupBox {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("About & security").font(.headline)
-                        Text("DeviceShare v0.2.0-alpha.8")
+                        Text("DeviceShare v0.2.0-alpha.9")
                         Text("The web dashboard uses email and password with remembered HttpOnly browser sessions. The local app retains a separate private machine credential for agent provisioning. Optional remote integration keys are kept in macOS Keychain.")
                             .font(.caption).foregroundStyle(.secondary)
                         Text("Unsigned developer alpha. Limit the Hub to loopback or HTTPS on a trusted network. A print job accepted by the spooler does not prove physical paper output.")
